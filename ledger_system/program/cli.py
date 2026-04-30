@@ -36,13 +36,17 @@ def create_parser() -> argparse.ArgumentParser:
 
     # Export command
     export_parser = subparsers.add_parser("export", help="导出报表")
-    export_parser.add_argument("--type", choices=["inventory", "inbound", "outbound"],
-                               required=True, help="报表类型")
+    export_parser.add_argument("--type", choices=["inventory", "inbound", "outbound", "all"],
+                               default="all", help="报表类型")
     export_parser.add_argument("--format", choices=["xlsx", "csv"], default="xlsx",
                                help="导出格式")
     export_parser.add_argument("--output", required=True, help="输出路径")
     export_parser.add_argument("--start", help="开始日期 YYYY-MM-DD")
     export_parser.add_argument("--end", help="结束日期 YYYY-MM-DD")
+    export_parser.add_argument("--dashboard", action="store_true",
+                               help="生成交互式材料看板")
+    export_parser.add_argument("--selected", nargs="+",
+                               help="选中导出的物料ID列表")
 
     # Sync command
     sync_parser = subparsers.add_parser("sync", help="同步报表")
