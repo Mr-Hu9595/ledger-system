@@ -1,0 +1,18 @@
+database:
+  host: "localhost"
+  port: 5432
+  name: "ledger_db"
+  user: "postgres"
+  password: "your_password"
+
+minimax:
+  api_key: "sk-cp-Tb9Viw7IZP432RPTrsO27Upe8FvAmoZjy9Lm2g4JCkgoeC_kWobSTrbV_gT4SyO2xi6veJzoh883fW_SAQHOQqdrd9VA5mbaaQ-XZpj5hRfLJuTmkNQ9OgA"
+  api_host: "api.minimax.io"
+  model: "MiniMax-Text-01"
+
+monitor:
+  watch_folder: "D:/工作/日常工作/台账/documents"
+  auto_process: true
+
+rules:
+  local_rules_path: "ledger_system/rules/local_rules.json"
