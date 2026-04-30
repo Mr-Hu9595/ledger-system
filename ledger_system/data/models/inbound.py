@@ -16,6 +16,7 @@ class Inbound(BaseModel):
     inbound_time = Column(Time, nullable=False)
     inbound_operator = Column(String(100), default="")
     document_source = Column(String(500), default="")
+    original_document_path = Column(String(500), default="")
     notes = Column(Text, default="")
 
     # relationship
