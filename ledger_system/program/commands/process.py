@@ -6,6 +6,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from ledger_system.business.document.parser import DocumentParser
 from ledger_system.business.document.watcher import FileWatcher
+from ledger_system.business.document.document_manager import DocumentManager
+from ledger_system.business.code_generator import CodeGenerator
+from ledger_system.business.report.report_sync import ReportSync
 from ledger_system.data.database import get_session
 from ledger_system.data.repository import LedgerRepository
 from ledger_system.data.models.document_log import DocumentLog
@@ -53,15 +56,39 @@ class ProcessCommand:
 
         with get_session() as session:
             repo = LedgerRepository(session)
+            doc_mgr = DocumentManager(session)
 
             # Find or create ledger
             ledger = repo.get_ledger_by_name(material_name)
             if not ledger:
+                print(f"创建新材料: {material_name}")
+
+                # 生成物料编码
+                code_gen = CodeGenerator(session)
+                cat_code, mid_code, sub_code = code_gen.match_category(material_name)
+
+                unit_map = {"吨": "01", "千克": "02", "米": "03", "个": "05", "根": "04",
+                           "卷": "07", "箱": "08", "块": "09", "平方": "10", "立方": "11"}
+                unit_code = unit_map.get(result.get("unit", ""), "05")
+
+                mat_code = code_gen.create_material_code(
+                    name=material_name,
+                    specification=result.get("specification", ""),
+                    category=cat_code,
+                    mid=mid_code,
+                    sub=sub_code,
+                    unit=unit_code,
+                    supplier="00"
+                )
+                material_code = mat_code.code
+                print(f"  物料编码: {material_code}")
+
                 ledger = repo.create_ledger(
                     category="material",
                     name=material_name,
                     unit=result.get("unit", ""),
-                    specification=result.get("specification", "")
+                    specification=result.get("specification", ""),
+                    material_code=material_code
                 )
 
             # Parse date
@@ -85,7 +112,7 @@ class ProcessCommand:
                 except:
                     quantity = 0
 
-            repo.add_inbound(
+            inbound = repo.add_inbound(
                 ledger_id=ledger.id,
                 quantity=Decimal(str(quantity)),
                 supplier=result.get("supplier", ""),
@@ -95,6 +122,21 @@ class ProcessCommand:
                 document_source=file_path,
                 notes=f"来源: 文档解析"
             )
+
+            # 保存原始单据到日期文件夹并生成摘要
+            if Path(file_path).exists():
+                txt_path = doc_mgr.save_original_document(
+                    source_path=file_path,
+                    record_type="inbound",
+                    record_id=inbound.id,
+                    material_name=material_name,
+                    quantity=quantity,
+                    supplier=result.get("supplier", ""),
+                    notes=f"来源: 文档解析"
+                )
+                inbound.original_document_path = txt_path
+                session.flush()
+                print(f"  原始单据已保存: {txt_path}")
 
             # Log
             log = DocumentLog(
@@ -107,6 +149,12 @@ class ProcessCommand:
 
             print(f"入库成功: {material_name} x {quantity}")
             print(f"当前库存: {ledger.current_stock}")
+
+            # 同步报表
+            print("正在同步报表...")
+            report_sync = ReportSync()
+            report_sync.sync_all()
+            print(f"报表已更新: {report_sync.REPORT_FILE}")
 
     def _start_watcher(self, folder: str):
         """Start file watcher"""

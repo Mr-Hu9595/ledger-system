@@ -16,6 +16,7 @@ class Outbound(BaseModel):
     outbound_time = Column(Time, nullable=False)
     receiver = Column(String(100), default="")
     outbound_operator = Column(String(100), default="")
+    original_document_path = Column(String(500), default="")  # 原始单据路径
     notes = Column(Text, default="")
 
     # relationship
