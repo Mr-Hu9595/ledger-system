@@ -1,5 +1,5 @@
 """Ledger (台账主表) model"""
-from sqlalchemy import Column, String, Numeric, ForeignKey
+from sqlalchemy import Column, String, Numeric, ForeignKey, Date, Text
 from sqlalchemy.orm import relationship
 from ledger_system.data.models.base import BaseModel
 
@@ -10,13 +10,15 @@ class Ledger(BaseModel):
 
     category = Column(String(20), nullable=False)  # material / equipment
     name = Column(String(200), nullable=False)
-    specification = Column(String(200), default="")
+    specification = Column(String(500), default="")  # 规格型号
     unit = Column(String(20), default="")
     current_stock = Column(Numeric(precision=10, scale=2), default=0)
     min_stock = Column(Numeric(precision=10, scale=2), default=0)
+    purchase_date = Column(Date, nullable=True)  # 采购日期
     material_code = Column(String(18), ForeignKey("material_code.code"), nullable=True)
+    notes = Column(Text, default="")  # 备注
 
-    # relationship
+    # relationships
     code_info = relationship("MaterialCode", foreign_keys=[material_code], lazy="joined")
 
     def __repr__(self):
