@@ -40,7 +40,8 @@ def create_parser() -> argparse.ArgumentParser:
                                default="all", help="报表类型")
     export_parser.add_argument("--format", choices=["xlsx", "csv"], default="xlsx",
                                help="导出格式")
-    export_parser.add_argument("--output", required=True, help="输出路径")
+    export_parser.add_argument("--output", default="台账报表.xlsx",
+                               help="输出路径（默认: 台账报表.xlsx）")
     export_parser.add_argument("--start", help="开始日期 YYYY-MM-DD")
     export_parser.add_argument("--end", help="结束日期 YYYY-MM-DD")
     export_parser.add_argument("--dashboard", action="store_true",
