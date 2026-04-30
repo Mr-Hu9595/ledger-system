@@ -94,7 +94,16 @@ class ReportGenerator:
 
             status = "正常" if l.current_stock >= l.min_stock else "库存不足"
 
+            # 搜索关键字：包含名称、规格、类别、物料编码等，用空格分隔
+            search_keyword = " ".join(filter(None, [
+                l.name or "",
+                l.specification or "",
+                l.category or "",
+                l.material_code or ""
+            ]))
+
             data.append({
+                "搜索关键字": search_keyword,
                 "名称": l.name,
                 "规格": l.specification,
                 "类别": l.category,
@@ -406,16 +415,17 @@ class ReportGenerator:
             ws[label_cell].border = thin_border
             ws[value_cell].border = thin_border
 
-        # VLOOKUP formulas for basic info - search term is in B3
-        # 台账总览 column mapping: A=名称,B=规格,C=类别,D=单位,E=当前库存,F=最小库存,G=累计入库,H=累计出库,I=采购日期,J=物料编码,K=状态
-        ws["D6"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:K,2,0),"")'  # 名称
-        ws["D7"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:K,3,0),"")'  # 规格
-        ws["D8"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:K,4,0),"")'  # 类别
-        ws["G6"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:K,5,0),"")'  # 单位
-        ws["G7"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:K,10,0),"")'  # 物料编码
-        ws["G8"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:K,9,0),"")'  # 采购日期
-        ws["J6"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:K,6,0),"")'  # 当前库存
-        ws["J7"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:K,7,0),"")'  # 最小库存
+        # VLOOKUP formulas for fuzzy matching - search term is in B3
+        # 台账总览 column mapping: A=搜索关键字,B=名称,C=规格,D=类别,E=单位,F=当前库存,G=最小库存,H=累计入库,I=累计出库,J=采购日期,K=物料编码,L=状态
+        # 使用 SUMPRODUCT + INDEX 实现模糊匹配：搜索关键字列中包含输入的关键词即匹配
+        ws["D6"] = '=IFERROR(INDEX(台账总览!B:B,SUMPRODUCT(MAX((ISNUMBER(SEARCH($B$3,台账总览!A:A)))*ROW(台账总览!A:A)))),"")'  # 名称
+        ws["D7"] = '=IFERROR(INDEX(台账总览!C:C,SUMPRODUCT(MAX((ISNUMBER(SEARCH($B$3,台账总览!A:A)))*ROW(台账总览!A:A)))),"")'  # 规格
+        ws["D8"] = '=IFERROR(INDEX(台账总览!D:D,SUMPRODUCT(MAX((ISNUMBER(SEARCH($B$3,台账总览!A:A)))*ROW(台账总览!A:A)))),"")'  # 类别
+        ws["G6"] = '=IFERROR(INDEX(台账总览!E:E,SUMPRODUCT(MAX((ISNUMBER(SEARCH($B$3,台账总览!A:A)))*ROW(台账总览!A:A)))),"")'  # 单位
+        ws["G7"] = '=IFERROR(INDEX(台账总览!K:K,SUMPRODUCT(MAX((ISNUMBER(SEARCH($B$3,台账总览!A:A)))*ROW(台账总览!A:A)))),"")'  # 物料编码
+        ws["G8"] = '=IFERROR(INDEX(台账总览!J:J,SUMPRODUCT(MAX((ISNUMBER(SEARCH($B$3,台账总览!A:A)))*ROW(台账总览!A:A)))),"")'  # 采购日期
+        ws["J6"] = '=IFERROR(INDEX(台账总览!F:F,SUMPRODUCT(MAX((ISNUMBER(SEARCH($B$3,台账总览!A:A)))*ROW(台账总览!A:A)))),"")'  # 当前库存
+        ws["J7"] = '=IFERROR(INDEX(台账总览!G:G,SUMPRODUCT(MAX((ISNUMBER(SEARCH($B$3,台账总览!A:A)))*ROW(台账总览!A:A)))),"")'  # 最小库存
         ws["J8"] = '=IF(B3="","",IF(J6>=J7,"✓ 正常","⚠️ 库存不足"))'  # 库存状态
 
         # === Section 2: Inbound History ===
