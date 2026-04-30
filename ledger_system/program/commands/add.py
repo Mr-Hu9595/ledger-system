@@ -72,6 +72,8 @@ class AddCommand:
 
     def _save_to_db(self, result: dict):
         """Save entry to database"""
+        from datetime import date, time, datetime
+
         with get_session() as session:
             repo = LedgerRepository(session)
 
@@ -85,23 +87,31 @@ class AddCommand:
                     unit=result.get("unit", "")
                 )
 
-            # Add inbound
-            from datetime import date
-            from decimal import Decimal
-
+            # Parse date
             inbound_date = result.get("date")
             if inbound_date and isinstance(inbound_date, str):
-                from datetime import datetime
                 inbound_date = datetime.fromisoformat(inbound_date).date()
             else:
                 inbound_date = date.today()
+
+            # Get current time
+            inbound_time = time(8, 0)  # 默认早上8点
+            now = datetime.now()
+            inbound_time = now.time()
+
+            # Get operator from result or use default
+            inbound_operator = result.get("operator", "系统录入")
+
+            # Add inbound
+            from decimal import Decimal
 
             repo.add_inbound(
                 ledger_id=ledger.id,
                 quantity=Decimal(str(result.get("quantity", 0))),
                 supplier=result.get("supplier", ""),
                 inbound_date=inbound_date,
-                operator="system",
+                inbound_time=inbound_time,
+                inbound_operator=inbound_operator,
                 notes=f"来源: 自然语言录入"
             )
 

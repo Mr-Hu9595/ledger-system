@@ -65,25 +65,32 @@ class QueryCommand:
             print(f"未找到材料: {args.material}")
             return
 
-        print(f"\n{'='*60}")
-        print(f"材料: {ledger.name}")
-        print(f"规格: {ledger.specification}")
-        print(f"当前库存: {ledger.current_stock} {ledger.unit}")
-        print(f"最小库存: {ledger.min_stock} {ledger.unit}")
-        print(f"{'='*60}")
+        print(f"\n{'='*70}")
+        print(f"{'材料详情':^35}")
+        print(f"{'='*70}")
+        print(f"{'名称:':<10} {ledger.name}")
+        print(f"{'规格:':<10} {ledger.specification}")
+        print(f"{'单位:':<10} {ledger.unit}")
+        print(f"{'当前库存:':<10} {ledger.current_stock}")
+        print(f"{'最小库存:':<10} {ledger.min_stock}")
+        print(f"{'='*70}")
 
         # Inbound history
         inbounds = repo.get_inbound_history(ledger.id, args.days)
-        print(f"\n入库记录 (最近 {args.days} 天):")
-        print(f"{'日期':<12} {'数量':>10} {'供应商':<20} {'操作人':<10}")
-        print(f"{'-'*52}")
+        print(f"\n{'入库记录 (最近 ' + str(args.days) + ' 天)':^50}")
+        print(f"{'-'*70}")
+        print(f"{'日期':<12} {'时间':<8} {'数量':>8} {'供应商':<15} {'入库人':<10}")
+        print(f"{'-'*70}")
         for ib in inbounds:
-            print(f"{str(ib.inbound_date):<12} {ib.quantity:>10} {ib.supplier:<20} {ib.operator:<10}")
+            inbound_time_str = str(ib.inbound_time)[:8] if ib.inbound_time else ""
+            print(f"{str(ib.inbound_date):<12} {inbound_time_str:<8} {float(ib.quantity):>8.2f} {ib.supplier:<15} {ib.inbound_operator:<10}")
 
         # Outbound history
         outbounds = repo.get_outbound_history(ledger.id, args.days)
-        print(f"\n使用记录 (最近 {args.days} 天):")
-        print(f"{'日期':<12} {'数量':>10} {'用途':<20} {'申请人':<10}")
-        print(f"{'-'*52}")
+        print(f"\n{'出库记录 (最近 ' + str(args.days) + ' 天)':^50}")
+        print(f"{'-'*70}")
+        print(f"{'日期':<12} {'时间':<8} {'数量':>8} {'用途':<15} {'领料人':<10} {'出库人':<10}")
+        print(f"{'-'*70}")
         for ob in outbounds:
-            print(f"{str(ob.outbound_date):<12} {ob.quantity:>10} {ob.usage:<20} {ob.applicant:<10}")
+            outbound_time_str = str(ob.outbound_time)[:8] if ob.outbound_time else ""
+            print(f"{str(ob.outbound_date):<12} {outbound_time_str:<8} {float(ob.quantity):>8.2f} {ob.usage:<15} {ob.receiver:<10} {ob.outbound_operator:<10}")

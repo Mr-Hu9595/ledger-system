@@ -36,18 +36,29 @@ def get_session_factory():
     return sessionmaker(bind=engine)
 
 
-def get_session() -> Generator[Session, None, None]:
+class DatabaseSession:
+    """Context manager for database session"""
+    def __init__(self):
+        self._session = None
+        self._factory = None
+
+    def __enter__(self):
+        self._factory = get_session_factory()
+        self._session = self._factory()
+        return self._session
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            self._session.rollback()
+        else:
+            self._session.commit()
+        self._session.close()
+        return False
+
+
+def get_session():
     """Get database session (context manager)"""
-    factory = get_session_factory()
-    session = factory()
-    try:
-        yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
+    return DatabaseSession()
 
 
 def init_database():

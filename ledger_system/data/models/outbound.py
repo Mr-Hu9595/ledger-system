@@ -1,5 +1,5 @@
-"""Outbound (使用记录) model"""
-from sqlalchemy import Column, String, Numeric, Date, Text, ForeignKey
+"""Outbound (出库记录) model"""
+from sqlalchemy import Column, String, Numeric, Date, Time, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from ledger_system.data.models.base import BaseModel
@@ -13,8 +13,9 @@ class Outbound(BaseModel):
     quantity = Column(Numeric(precision=10, scale=2), nullable=False)
     usage = Column(String(200), default="")
     outbound_date = Column(Date, nullable=False)
-    applicant = Column(String(100), default="")
-    approver = Column(String(100), default="")
+    outbound_time = Column(Time, nullable=False)
+    receiver = Column(String(100), default="")
+    outbound_operator = Column(String(100), default="")
     notes = Column(Text, default="")
 
     # relationship

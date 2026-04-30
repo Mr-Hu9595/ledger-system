@@ -1,5 +1,5 @@
 """Ledger repository for data access"""
-from datetime import date
+from datetime import date, time
 from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
@@ -61,19 +61,23 @@ class LedgerRepository:
         return True
 
     def add_inbound(self, ledger_id: UUID, quantity: Decimal, supplier: str = "",
-                    inbound_date: date = None, document_source: str = "",
-                    operator: str = "", notes: str = "") -> Inbound:
+                    inbound_date: date = None, inbound_time: time = None,
+                    inbound_operator: str = "", document_source: str = "",
+                    notes: str = "") -> Inbound:
         """Add inbound record and update stock"""
         if inbound_date is None:
             inbound_date = date.today()
+        if inbound_time is None:
+            inbound_time = time(8, 0)  # 默认早上8点
 
         inbound = Inbound(
             ledger_id=ledger_id,
             quantity=quantity,
             supplier=supplier,
             inbound_date=inbound_date,
+            inbound_time=inbound_time,
+            inbound_operator=inbound_operator,
             document_source=document_source,
-            operator=operator,
             notes=notes
         )
         self.session.add(inbound)
@@ -84,11 +88,14 @@ class LedgerRepository:
         return inbound
 
     def add_outbound(self, ledger_id: UUID, quantity: Decimal, usage: str = "",
-                     outbound_date: date = None, applicant: str = "",
-                     approver: str = "", notes: str = "") -> Optional[Outbound]:
+                     outbound_date: date = None, outbound_time: time = None,
+                     receiver: str = "", outbound_operator: str = "",
+                     notes: str = "") -> Optional[Outbound]:
         """Add outbound record and update stock (only if sufficient stock)"""
         if outbound_date is None:
             outbound_date = date.today()
+        if outbound_time is None:
+            outbound_time = time(8, 0)  # 默认早上8点
 
         ledger = self.get_ledger_by_id(ledger_id)
         if not ledger or ledger.current_stock < quantity:
@@ -99,8 +106,9 @@ class LedgerRepository:
             quantity=quantity,
             usage=usage,
             outbound_date=outbound_date,
-            applicant=applicant,
-            approver=approver,
+            outbound_time=outbound_time,
+            receiver=receiver,
+            outbound_operator=outbound_operator,
             notes=notes
         )
         self.session.add(outbound)
@@ -117,7 +125,7 @@ class LedgerRepository:
         return self.session.query(Inbound).filter(
             Inbound.ledger_id == ledger_id,
             Inbound.inbound_date >= start_date
-        ).order_by(Inbound.inbound_date.desc()).all()
+        ).order_by(Inbound.inbound_date.desc(), Inbound.inbound_time.desc()).all()
 
     def get_outbound_history(self, ledger_id: UUID, days: int = 30) -> List[Outbound]:
         """Get outbound history for ledger"""
@@ -126,7 +134,7 @@ class LedgerRepository:
         return self.session.query(Outbound).filter(
             Outbound.ledger_id == ledger_id,
             Outbound.outbound_date >= start_date
-        ).order_by(Outbound.outbound_date.desc()).all()
+        ).order_by(Outbound.outbound_date.desc(), Outbound.outbound_time.desc()).all()
 
     def get_low_stock_items(self) -> List[Ledger]:
         """Get items at or below min_stock"""

@@ -1,5 +1,5 @@
 """Inbound (入库记录) model"""
-from sqlalchemy import Column, String, Numeric, Date, Text, ForeignKey
+from sqlalchemy import Column, String, Numeric, Date, Time, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from ledger_system.data.models.base import BaseModel
@@ -13,8 +13,9 @@ class Inbound(BaseModel):
     quantity = Column(Numeric(precision=10, scale=2), nullable=False)
     supplier = Column(String(200), default="")
     inbound_date = Column(Date, nullable=False)
+    inbound_time = Column(Time, nullable=False)
+    inbound_operator = Column(String(100), default="")
     document_source = Column(String(500), default="")
-    operator = Column(String(100), default="")
     notes = Column(Text, default="")
 
     # relationship

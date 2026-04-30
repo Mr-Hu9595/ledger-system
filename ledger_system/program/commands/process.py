@@ -9,7 +9,7 @@ from ledger_system.business.document.watcher import FileWatcher
 from ledger_system.data.database import get_session
 from ledger_system.data.repository import LedgerRepository
 from ledger_system.data.models.document_log import DocumentLog
-from datetime import date
+from datetime import date, time, datetime
 from decimal import Decimal
 
 
@@ -64,14 +64,20 @@ class ProcessCommand:
                     specification=result.get("specification", "")
                 )
 
-            # Add inbound
+            # Parse date
             inbound_date = result.get("date")
             if inbound_date and isinstance(inbound_date, str):
-                from datetime import datetime
                 inbound_date = datetime.fromisoformat(inbound_date).date()
             else:
                 inbound_date = date.today()
 
+            # Get current time
+            inbound_time = datetime.now().time()
+
+            # Get operator
+            inbound_operator = result.get("operator", "文档录入")
+
+            # Parse quantity
             quantity = result.get("quantity") or 0
             if isinstance(quantity, str):
                 try:
@@ -84,8 +90,9 @@ class ProcessCommand:
                 quantity=Decimal(str(quantity)),
                 supplier=result.get("supplier", ""),
                 inbound_date=inbound_date,
+                inbound_time=inbound_time,
+                inbound_operator=inbound_operator,
                 document_source=file_path,
-                operator="document",
                 notes=f"来源: 文档解析"
             )
 

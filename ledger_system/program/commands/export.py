@@ -71,14 +71,18 @@ class ExportCommand:
                     if end_date and ib.inbound_date > end_date:
                         continue
 
+                    inbound_time_str = str(ib.inbound_time)[:8] if ib.inbound_time else ""
+
                     data.append({
                         "日期": ib.inbound_date,
+                        "时间": inbound_time_str,
                         "材料": ledger.name,
                         "规格": ledger.specification,
                         "数量": float(ib.quantity),
                         "单位": ledger.unit,
                         "供应商": ib.supplier,
-                        "操作人": ib.operator,
+                        "入库人": ib.inbound_operator,
+                        "单据来源": ib.document_source,
                         "备注": ib.notes
                     })
 
@@ -110,19 +114,22 @@ class ExportCommand:
                     if end_date and ob.outbound_date > end_date:
                         continue
 
+                    outbound_time_str = str(ob.outbound_time)[:8] if ob.outbound_time else ""
+
                     data.append({
                         "日期": ob.outbound_date,
+                        "时间": outbound_time_str,
                         "材料": ledger.name,
                         "规格": ledger.specification,
                         "数量": float(ob.quantity),
                         "单位": ledger.unit,
                         "用途": ob.usage,
-                        "申请人": ob.applicant,
-                        "审批人": ob.approver,
+                        "领料人": ob.receiver,
+                        "出库人": ob.outbound_operator,
                         "备注": ob.notes
                     })
 
             df = pd.DataFrame(data)
             df = df.sort_values("日期", ascending=False)
             df.to_excel(output_path, index=False, engine="openpyxl")
-            print(f"使用记录已导出: {output_path}")
+            print(f"出库记录已导出: {output_path}")
