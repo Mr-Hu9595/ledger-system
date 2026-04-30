@@ -444,40 +444,40 @@ class ReportGenerator:
         ws["E10"] = f'=IFERROR(INDEX(台账总览!$K:$K,{match_formula}),"")'  # 出库累计
 
         # === Section 2: Inbound History ===
-        ws.merge_cells("A10:L10")
-        ws["A10"] = "入库记录 (最近10条)"
-        ws["A10"].fill = section_fill
-        ws["A10"].font = section_font
+        ws.merge_cells("A12:L12")
+        ws["A12"] = "入库记录 (最近10条)"
+        ws["A12"].fill = section_fill
+        ws["A12"].font = section_font
 
         inbound_headers = ["序号", "日期", "时间", "数量", "单位", "累计入库", "供应商", "操作人", "备注"]
         for col, header in enumerate(inbound_headers, 1):
-            cell = ws.cell(row=11, column=col, value=header)
+            cell = ws.cell(row=13, column=col, value=header)
             cell.font = header_font
             cell.fill = header_fill
             cell.border = thin_border
             cell.alignment = Alignment(horizontal="center")
 
-        for row in range(12, 22):
-            ws.cell(row=row, column=1, value=f"第{row-11}次").border = thin_border
+        for row in range(14, 24):
+            ws.cell(row=row, column=1, value=f"第{row-13}次").border = thin_border
             for col in range(2, 10):
                 ws.cell(row=row, column=col).border = thin_border
 
         # === Section 3: Outbound History ===
-        ws.merge_cells("A24:L24")
-        ws["A24"] = "出库记录 (最近10条)"
-        ws["A24"].fill = section_fill
-        ws["A24"].font = section_font
+        ws.merge_cells("A26:L26")
+        ws["A26"] = "出库记录 (最近10条)"
+        ws["A26"].fill = section_fill
+        ws["A26"].font = section_font
 
         outbound_headers = ["序号", "日期", "时间", "数量", "单位", "累计出库", "用途", "领用人", "操作人", "备注"]
         for col, header in enumerate(outbound_headers, 1):
-            cell = ws.cell(row=25, column=col, value=header)
+            cell = ws.cell(row=27, column=col, value=header)
             cell.font = header_font
             cell.fill = header_fill
             cell.border = thin_border
             cell.alignment = Alignment(horizontal="center")
 
-        for row in range(26, 36):
-            ws.cell(row=row, column=1, value=f"第{row-25}次").border = thin_border
+        for row in range(28, 38):
+            ws.cell(row=row, column=1, value=f"第{row-27}次").border = thin_border
             for col in range(2, 11):
                 ws.cell(row=row, column=col).border = thin_border
 
