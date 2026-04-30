@@ -60,8 +60,8 @@ class ExportCommand:
             )
             print(f"出库记录已导出: {result_path}")
         else:
-            # Full export
+            # Full export with dashboard
             result_path = generator.generate_full_report(
-                str(output_path), start_date, end_date
+                str(output_path), start_date, end_date, include_dashboard=True
             )
-            print(f"报表已导出: {result_path}")
+            print(f"报表已导出（含材料看板）: {result_path}")

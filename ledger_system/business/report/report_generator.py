@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils.dataframe import dataframe_to_rows
 
 from ledger_system.data.database import get_session
@@ -26,7 +27,7 @@ class ReportGenerator:
         return self.repo
 
     def generate_full_report(self, output_path: str, start_date: date = None,
-                            end_date: date = None) -> str:
+                            end_date: date = None, include_dashboard: bool = False) -> str:
         """Generate full report with all sheets"""
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -36,17 +37,21 @@ class ReportGenerator:
             self.repo = repo
 
             with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
-                # Sheet 1: 台账总览
+                # Sheet 2: 台账总览
                 self._write_ledger_overview(repo, writer)
 
-                # Sheet 2: 入库记录
+                # Sheet 3: 入库记录
                 self._write_inbound_records(repo, writer, start_date, end_date)
 
-                # Sheet 3: 出库记录
+                # Sheet 4: 出库记录
                 self._write_outbound_records(repo, writer, start_date, end_date)
 
-                # Sheet 4: 物料编码
+                # Sheet 5: 物料编码
                 self._write_material_codes(writer)
+
+            # Add dashboard sheet at the beginning if requested
+            if include_dashboard:
+                self._add_dashboard_sheet(output_path)
 
             return str(output_path)
 
@@ -329,3 +334,123 @@ class ReportGenerator:
         for row in sheet.iter_rows():
             for cell in row:
                 cell.border = thin_border
+
+    def _add_dashboard_sheet(self, output_path: Path) -> None:
+        """Add dashboard sheet at the beginning of the Excel file"""
+        from openpyxl import load_workbook
+
+        wb = load_workbook(str(output_path))
+
+        # Create new workbook with dashboard
+        new_wb = Workbook()
+        new_wb.remove(new_wb.active)  # Remove default sheet
+
+        # Create dashboard sheet
+        ws = new_wb.create_sheet("材料看板", 0)
+        self._write_dashboard_content(ws)
+
+        # Copy all other sheets from original workbook
+        for sheet_name in wb.sheetnames:
+            new_wb._sheets.append(wb[sheet_name])
+
+        new_wb.save(str(output_path))
+
+    def _write_dashboard_content(self, ws) -> None:
+        """Write dashboard content to sheet"""
+        # Styles
+        header_font = Font(bold=True, size=14, color="FFFFFF")
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        section_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+        section_font = Font(bold=True, size=12)
+        thin_border = Border(
+            left=Side(style="thin"),
+            right=Side(style="thin"),
+            top=Side(style="thin"),
+            bottom=Side(style="thin")
+        )
+
+        # Title
+        ws.merge_cells("A1:L1")
+        ws["A1"] = "材料信息看板"
+        ws["A1"].font = Font(bold=True, size=18)
+        ws["A1"].alignment = Alignment(horizontal="center")
+
+        # Row 3: Search area
+        ws["A3"] = "搜索材料:"
+        ws["A3"].font = Font(bold=True)
+        ws["B3"] = ""  # User input cell - VLOOKUP will be used in 台账总览 sheet
+        ws["B3"].fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+        ws["B3"].border = thin_border
+        ws["C3"] = "← 输入物料名称后查看详情（需在台账总览中查找）"
+        ws["C3"].font = Font(italic=True, color="666666")
+
+        # === Section 1: Basic Info ===
+        ws.merge_cells("A5:L5")
+        ws["A5"] = "基本信息"
+        ws["A5"].fill = section_fill
+        ws["A5"].font = section_font
+
+        # Basic info labels
+        basic_info = [
+            ("名称", "B6", "D6"),
+            ("规格", "B7", "D7"),
+            ("类别", "B8", "D8"),
+            ("单位", "F6", "G6"),
+            ("物料编码", "F7", "G7"),
+            ("采购日期", "F8", "G8"),
+            ("当前库存", "I6", "J6"),
+            ("最小库存", "I7", "J7"),
+            ("库存状态", "I8", "J8"),
+        ]
+
+        for label, label_cell, value_cell in basic_info:
+            ws[label_cell] = label + ":"
+            ws[label_cell].font = Font(bold=True)
+            ws[label_cell].border = thin_border
+            ws[value_cell].border = thin_border
+
+        # === Section 2: Inbound History ===
+        ws.merge_cells("A10:L10")
+        ws["A10"] = "入库记录 (最近10条)"
+        ws["A10"].fill = section_fill
+        ws["A10"].font = section_font
+
+        inbound_headers = ["序号", "日期", "时间", "数量", "单位", "累计入库", "供应商", "操作人", "备注"]
+        for col, header in enumerate(inbound_headers, 1):
+            cell = ws.cell(row=11, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = thin_border
+            cell.alignment = Alignment(horizontal="center")
+
+        for row in range(12, 22):
+            ws.cell(row=row, column=1, value=f"第{row-11}次").border = thin_border
+            for col in range(2, 10):
+                ws.cell(row=row, column=col).border = thin_border
+
+        # === Section 3: Outbound History ===
+        ws.merge_cells("A24:L24")
+        ws["A24"] = "出库记录 (最近10条)"
+        ws["A24"].fill = section_fill
+        ws["A24"].font = section_font
+
+        outbound_headers = ["序号", "日期", "时间", "数量", "单位", "累计出库", "用途", "领用人", "操作人", "备注"]
+        for col, header in enumerate(outbound_headers, 1):
+            cell = ws.cell(row=25, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = thin_border
+            cell.alignment = Alignment(horizontal="center")
+
+        for row in range(26, 36):
+            ws.cell(row=row, column=1, value=f"第{row-25}次").border = thin_border
+            for col in range(2, 11):
+                ws.cell(row=row, column=col).border = thin_border
+
+        # Set column widths
+        column_widths = {
+            "A": 12, "B": 15, "C": 15, "D": 15, "E": 10, "F": 15,
+            "G": 18, "H": 12, "I": 15, "J": 12, "K": 15, "L": 15
+        }
+        for col, width in column_widths.items():
+            ws.column_dimensions[col].width = width
