@@ -389,7 +389,7 @@ class ReportGenerator:
         ws["B3"] = ""  # User input cell - VLOOKUP will be used in 台账总览 sheet
         ws["B3"].fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
         ws["B3"].border = thin_border
-        ws["C3"] = "← 输入物料名称后查看详情（需在台账总览中查找）"
+        ws["C3"] = "← 输入任意关键词搜索（如：交换机、Q235、光纤等）"
         ws["C3"].font = Font(italic=True, color="666666")
 
         # === Section 1: Basic Info ===
@@ -398,21 +398,26 @@ class ReportGenerator:
         ws["A5"].fill = section_fill
         ws["A5"].font = section_font
 
-        # Basic info labels - 修复布局，避免与公式冲突
+        # Basic info labels - 正确布局：标签在B/D/F列，值在相邻C/E/G列
         basic_info = [
-            ("名称", "B6", "D6"),
-            ("规格", "B7", "D7"),
-            ("类别", "B8", "D8"),
-            ("单位", "F6", "G6"),
-            ("物料编码", "F7", "G7"),
-            ("采购日期", "F8", "G8"),
-            ("当前库存", "I6", "J6"),
-            ("最小库存", "I7", "J7"),
-            ("库存状态", "I8", "J8"),
-            ("入库次数", "I9", "K9"),
-            ("入库累计", "I10", "K10"),
-            ("出库次数", "L9", "M9"),
-            ("出库累计", "L10", "M10"),
+            # Row 6
+            ("名称", "B6", "C6"),
+            ("规格", "D6", "E6"),
+            ("类别", "F6", "G6"),
+            # Row 7
+            ("单位", "B7", "C7"),
+            ("物料编码", "D7", "E7"),
+            ("采购日期", "F7", "G7"),
+            # Row 8
+            ("当前库存", "B8", "C8"),
+            ("最小库存", "D8", "E8"),
+            ("库存状态", "F8", "G8"),
+            # Row 9
+            ("入库次数", "B9", "C9"),
+            ("入库累计", "D9", "E9"),
+            # Row 10
+            ("出库次数", "B10", "C10"),
+            ("出库累计", "D10", "E10"),
         ]
 
         for label, label_cell, value_cell in basic_info:
@@ -424,19 +429,19 @@ class ReportGenerator:
         # 模糊匹配公式 - 使用 MATCH + 通配符
         # 台账总览列映射: A=搜索关键字,B=名称,C=规格,D=类别,E=单位,F=当前库存,G=最小库存,H=入库次数,I=入库累计,J=出库次数,K=出库累计,L=采购日期,M=物料编码,N=状态
         match_formula = 'MATCH("*"&$B$3&"*",台账总览!$A:$A,0)'
-        ws["D6"] = f'=IFERROR(INDEX(台账总览!$B:$B,{match_formula}),"")'  # 名称
-        ws["D7"] = f'=IFERROR(INDEX(台账总览!$C:$C,{match_formula}),"")'  # 规格
-        ws["D8"] = f'=IFERROR(INDEX(台账总览!$D:$D,{match_formula}),"")'  # 类别
-        ws["G6"] = f'=IFERROR(INDEX(台账总览!$E:$E,{match_formula}),"")'  # 单位
-        ws["G7"] = f'=IFERROR(INDEX(台账总览!$M:$M,{match_formula}),"")'  # 物料编码
-        ws["G8"] = f'=IFERROR(INDEX(台账总览!$L:$L,{match_formula}),"")'  # 采购日期
-        ws["J6"] = f'=IFERROR(INDEX(台账总览!$F:$F,{match_formula}),"")'  # 当前库存
-        ws["J7"] = f'=IFERROR(INDEX(台账总览!$G:$G,{match_formula}),"")'  # 最小库存
-        ws["K9"] = f'=IFERROR(INDEX(台账总览!$H:$H,{match_formula}),"")'  # 入库次数
-        ws["K10"] = f'=IFERROR(INDEX(台账总览!$I:$I,{match_formula}),"")'  # 入库累计
-        ws["M9"] = f'=IFERROR(INDEX(台账总览!$J:$J,{match_formula}),"")'  # 出库次数
-        ws["M10"] = f'=IFERROR(INDEX(台账总览!$K:$K,{match_formula}),"")'  # 出库累计
-        ws["J8"] = '=IF(B3="","",IF(J6>=J7,"✓ 正常","⚠️ 库存不足"))'  # 库存状态
+        ws["C6"] = f'=IFERROR(INDEX(台账总览!$B:$B,{match_formula}),"")'  # 名称
+        ws["E6"] = f'=IFERROR(INDEX(台账总览!$C:$C,{match_formula}),"")'  # 规格
+        ws["G6"] = f'=IFERROR(INDEX(台账总览!$D:$D,{match_formula}),"")'  # 类别
+        ws["C7"] = f'=IFERROR(INDEX(台账总览!$E:$E,{match_formula}),"")'  # 单位
+        ws["E7"] = f'=IFERROR(INDEX(台账总览!$M:$M,{match_formula}),"")'  # 物料编码
+        ws["G7"] = f'=IFERROR(INDEX(台账总览!$L:$L,{match_formula}),"")'  # 采购日期
+        ws["C8"] = f'=IFERROR(INDEX(台账总览!$F:$F,{match_formula}),"")'  # 当前库存
+        ws["E8"] = f'=IFERROR(INDEX(台账总览!$G:$G,{match_formula}),"")'  # 最小库存
+        ws["G8"] = '=IF($B$3="","",IF(C8>=E8,"✓ 正常","⚠️ 库存不足"))'  # 库存状态
+        ws["C9"] = f'=IFERROR(INDEX(台账总览!$H:$H,{match_formula}),"")'  # 入库次数
+        ws["E9"] = f'=IFERROR(INDEX(台账总览!$I:$I,{match_formula}),"")'  # 入库累计
+        ws["C10"] = f'=IFERROR(INDEX(台账总览!$J:$J,{match_formula}),"")'  # 出库次数
+        ws["E10"] = f'=IFERROR(INDEX(台账总览!$K:$K,{match_formula}),"")'  # 出库累计
 
         # === Section 2: Inbound History ===
         ws.merge_cells("A10:L10")
