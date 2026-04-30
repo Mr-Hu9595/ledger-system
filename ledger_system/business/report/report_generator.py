@@ -457,10 +457,22 @@ class ReportGenerator:
             cell.border = thin_border
             cell.alignment = Alignment(horizontal="center")
 
+        # 入库记录联动公式 - 搜索物料名称匹配
+        # 入库记录列: A=序号,B=日期,C=时间,D=物料名称,E=规格,F=数量,G=单位,H=累计入库,I=供应商
         for row in range(14, 24):
             ws.cell(row=row, column=1, value=f"第{row-13}次").border = thin_border
             for col in range(2, 10):
                 ws.cell(row=row, column=col).border = thin_border
+
+        # 入库记录公式 - 根据搜索词筛选
+        # 序号
+        ws["A14"] = '=IFERROR(IF(ROW()-13<=COUNTIF(入库记录!$D:$D,"*"&$B$3&"*"),"第"&ROW()-13&"次",""),"")'
+        # 日期
+        ws["B14"] = '=IFERROR(INDEX(入库记录!$B:$B,SMALL(IF(ISNUMBER(SEARCH($B$3,入库记录!$D:$D)),ROW(入库记录!$D:$D)),ROW()-13)),"")'
+        # 数量
+        ws["F14"] = '=IFERROR(INDEX(入库记录!$F:$F,SMALL(IF(ISNUMBER(SEARCH($B$3,入库记录!$D:$D)),ROW(入库记录!$D:$D)),ROW()-13)),"")'
+        # 供应商
+        ws["I14"] = '=IFERROR(INDEX(入库记录!$I:$I,SMALL(IF(ISNUMBER(SEARCH($B$3,入库记录!$D:$D)),ROW(入库记录!$D:$D)),ROW()-13)),"")'
 
         # === Section 3: Outbound History ===
         ws.merge_cells("A26:L26")
@@ -480,6 +492,20 @@ class ReportGenerator:
             ws.cell(row=row, column=1, value=f"第{row-27}次").border = thin_border
             for col in range(2, 11):
                 ws.cell(row=row, column=col).border = thin_border
+
+        # 出库记录公式
+        ws["A28"] = '=IFERROR(IF(ROW()-27<=COUNTIF(出库记录!$D:$D,"*"&$B$3&"*"),"第"&ROW()-27&"次",""),"")'
+        ws["B28"] = '=IFERROR(INDEX(出库记录!$B:$B,SMALL(IF(ISNUMBER(SEARCH($B$3,出库记录!$D:$D)),ROW(出库记录!$D:$D)),ROW()-27)),"")'
+        ws["F28"] = '=IFERROR(INDEX(出库记录!$F:$F,SMALL(IF(ISNUMBER(SEARCH($B$3,出库记录!$D:$D)),ROW(出库记录!$D:$D)),ROW()-27)),"")'
+        ws["G28"] = '=IFERROR(INDEX(出库记录!$G:$G,SMALL(IF(ISNUMBER(SEARCH($B$3,出库记录!$D:$D)),ROW(出库记录!$D:$D)),ROW()-27)),"")'
+
+        # 导出提示
+        ws["A38"] = "导出报表命令:"
+        ws["A38"].font = Font(bold=True)
+        ws["B38"] = '=IF($B$3<>"","运行: ledger export --type all --output 台账报表.xlsx","请先搜索物料")'
+        ws.merge_cells("A39:L39")
+        ws["A39"] = "提示: 在B3格输入物料名称进行搜索，基本信息和统计将自动显示"
+        ws["A39"].font = Font(italic=True, color="666666")
 
         # Set column widths
         column_widths = {
