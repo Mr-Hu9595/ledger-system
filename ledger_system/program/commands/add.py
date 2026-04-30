@@ -11,6 +11,7 @@ from ledger_system.business.nlp.ai_service import AIService
 from ledger_system.business.nlp.rule_engine import RuleEngine
 from ledger_system.business.learning.feedback import FeedbackLearning
 from ledger_system.business.learning.diff_logger import DiffLogger
+from ledger_system.business.code_generator import CodeGenerator
 
 
 class AddCommand:
@@ -79,12 +80,38 @@ class AddCommand:
 
             # Find or create ledger
             ledger = repo.get_ledger_by_name(result["material_name"])
+            material_code = None
+
             if not ledger:
                 print(f"创建新材料: {result['material_name']}")
+
+                # 生成物料编码
+                code_gen = CodeGenerator(session)
+                cat_code, mid_code, sub_code = code_gen.match_category(result["material_name"])
+
+                # 确定单位编码
+                unit_map = {"吨": "01", "千克": "02", "米": "03", "个": "05", "根": "04",
+                           "卷": "07", "箱": "08", "块": "09", "平方": "10", "立方": "11"}
+                unit_code = unit_map.get(result.get("unit", ""), "05")
+
+                # 生成编码记录
+                mat_code = code_gen.create_material_code(
+                    name=result["material_name"],
+                    specification=result.get("specification", ""),
+                    category=cat_code,
+                    mid=mid_code,
+                    sub=sub_code,
+                    unit=unit_code,
+                    supplier="00"
+                )
+                material_code = mat_code.code
+                print(f"  物料编码: {material_code}")
+
                 ledger = repo.create_ledger(
                     category="material",
                     name=result["material_name"],
-                    unit=result.get("unit", "")
+                    unit=result.get("unit", ""),
+                    material_code=material_code
                 )
 
             # Parse date

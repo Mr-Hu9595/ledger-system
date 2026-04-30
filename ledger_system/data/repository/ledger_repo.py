@@ -16,8 +16,15 @@ class LedgerRepository:
     def __init__(self, session: Session):
         self.session = session
 
-    def create_ledger(self, category: str, name: str, specification: str = "",
-                      unit: str = "", min_stock: Decimal = Decimal(0)) -> Ledger:
+    def create_ledger(
+        self,
+        category: str,
+        name: str,
+        specification: str = "",
+        unit: str = "",
+        min_stock: Decimal = Decimal(0),
+        material_code: str = None
+    ) -> Ledger:
         """Create new ledger entry"""
         ledger = Ledger(
             category=category,
@@ -25,7 +32,8 @@ class LedgerRepository:
             specification=specification,
             unit=unit,
             current_stock=Decimal(0),
-            min_stock=min_stock
+            min_stock=min_stock,
+            material_code=material_code
         )
         self.session.add(ledger)
         self.session.flush()
