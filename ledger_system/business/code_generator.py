@@ -117,6 +117,36 @@ class CodeGenerator:
             return last.sequence + 1
         return 1
 
+    def _check_code_exists(self, code: str) -> bool:
+        """检查编码是否已存在"""
+        existing = self.session.query(MaterialCode).filter(
+            MaterialCode.code == code
+        ).first()
+        return existing is not None
+
+    def generate_unique_code(
+        self,
+        category: str,
+        mid: str,
+        sub: str,
+        spec: str = "01",
+        unit: str = "05",
+        supplier: str = "00"
+    ) -> str:
+        """生成唯一的18位编码，确保不重复"""
+        year = str(datetime.now().year)[-2:]
+
+        # Try to get next sequence first
+        sequence = self._get_next_sequence(category, mid, sub, year)
+        code = f"{category}{mid}{sub}{spec}{unit}{supplier}{year}{sequence:04d}"
+
+        # If code exists, find next available sequence
+        while self._check_code_exists(code):
+            sequence += 1
+            code = f"{category}{mid}{sub}{spec}{unit}{supplier}{year}{sequence:04d}"
+
+        return code
+
     def parse_code(self, code: str) -> dict:
         """解析编码，返回各部分含义"""
         if len(code) != 18:
@@ -234,8 +264,8 @@ class CodeGenerator:
             if not sub:
                 sub = "01"
 
-        # 生成编码
-        code = self.generate_code(category, mid, sub, spec, unit, supplier)
+        # 生成唯一编码
+        code = self.generate_unique_code(category, mid, sub, spec, unit, supplier)
 
         # 创建记录
         material_code = MaterialCode(
