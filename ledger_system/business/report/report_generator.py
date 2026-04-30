@@ -398,7 +398,7 @@ class ReportGenerator:
         ws["A5"].fill = section_fill
         ws["A5"].font = section_font
 
-        # Basic info labels
+        # Basic info labels - 修复布局，避免与公式冲突
         basic_info = [
             ("名称", "B6", "D6"),
             ("规格", "B7", "D7"),
@@ -409,10 +409,10 @@ class ReportGenerator:
             ("当前库存", "I6", "J6"),
             ("最小库存", "I7", "J7"),
             ("库存状态", "I8", "J8"),
-            ("入库次数", "I9", "J9"),
-            ("入库累计", "I10", "J10"),
-            ("出库次数", "K9", "L9"),
-            ("出库累计", "K10", "L10"),
+            ("入库次数", "I9", "K9"),
+            ("入库累计", "I10", "K10"),
+            ("出库次数", "L9", "M9"),
+            ("出库累计", "L10", "M10"),
         ]
 
         for label, label_cell, value_cell in basic_info:
@@ -421,23 +421,22 @@ class ReportGenerator:
             ws[label_cell].border = thin_border
             ws[value_cell].border = thin_border
 
-        # 模糊匹配公式 - 使用 AGGREGATE 找到匹配行，然后 INDEX 获取值
-        # AGGREGATE(15,6,...) = SMALL ignoring errors, 15 = row number function
+        # 模糊匹配公式 - 使用 MATCH + 通配符
         # 台账总览列映射: A=搜索关键字,B=名称,C=规格,D=类别,E=单位,F=当前库存,G=最小库存,H=入库次数,I=入库累计,J=出库次数,K=出库累计,L=采购日期,M=物料编码,N=状态
-        search_formula = 'AGGREGATE(15,6,ROW(台账总览!$A$2:$A$1000)/(ISNUMBER(SEARCH($B$3,台账总览!$A$2:$A$1000))),1)'
-        ws["D6"] = f'=IFERROR(INDEX(台账总览!$B$2:$B$1000,{search_formula}-1),"")'  # 名称
-        ws["D7"] = f'=IFERROR(INDEX(台账总览!$C$2:$C$1000,{search_formula}-1),"")'  # 规格
-        ws["D8"] = f'=IFERROR(INDEX(台账总览!$D$2:$D$1000,{search_formula}-1),"")'  # 类别
-        ws["G6"] = f'=IFERROR(INDEX(台账总览!$E$2:$E$1000,{search_formula}-1),"")'  # 单位
-        ws["G7"] = f'=IFERROR(INDEX(台账总览!$M$2:$M$1000,{search_formula}-1),"")'  # 物料编码
-        ws["G8"] = f'=IFERROR(INDEX(台账总览!$L$2:$L$1000,{search_formula}-1),"")'  # 采购日期
-        ws["J6"] = f'=IFERROR(INDEX(台账总览!$F$2:$F$1000,{search_formula}-1),"")'  # 当前库存
-        ws["J7"] = f'=IFERROR(INDEX(台账总览!$G$2:$G$1000,{search_formula}-1),"")'  # 最小库存
-        ws["J8"] = f'=IFERROR(INDEX(台账总览!$H$2:$H$1000,{search_formula}-1),"")'  # 入库次数
-        ws["J9"] = f'=IFERROR(INDEX(台账总览!$I$2:$I$1000,{search_formula}-1),"")'  # 入库累计
-        ws["K8"] = f'=IFERROR(INDEX(台账总览!$J$2:$J$1000,{search_formula}-1),"")'  # 出库次数
-        ws["K9"] = f'=IFERROR(INDEX(台账总览!$K$2:$K$1000,{search_formula}-1),"")'  # 出库累计
-        ws["J10"] = '=IF(B3="","",IF(J6>=J7,"✓ 正常","⚠️ 库存不足"))'  # 库存状态
+        match_formula = 'MATCH("*"&$B$3&"*",台账总览!$A:$A,0)'
+        ws["D6"] = f'=IFERROR(INDEX(台账总览!$B:$B,{match_formula}),"")'  # 名称
+        ws["D7"] = f'=IFERROR(INDEX(台账总览!$C:$C,{match_formula}),"")'  # 规格
+        ws["D8"] = f'=IFERROR(INDEX(台账总览!$D:$D,{match_formula}),"")'  # 类别
+        ws["G6"] = f'=IFERROR(INDEX(台账总览!$E:$E,{match_formula}),"")'  # 单位
+        ws["G7"] = f'=IFERROR(INDEX(台账总览!$M:$M,{match_formula}),"")'  # 物料编码
+        ws["G8"] = f'=IFERROR(INDEX(台账总览!$L:$L,{match_formula}),"")'  # 采购日期
+        ws["J6"] = f'=IFERROR(INDEX(台账总览!$F:$F,{match_formula}),"")'  # 当前库存
+        ws["J7"] = f'=IFERROR(INDEX(台账总览!$G:$G,{match_formula}),"")'  # 最小库存
+        ws["K9"] = f'=IFERROR(INDEX(台账总览!$H:$H,{match_formula}),"")'  # 入库次数
+        ws["K10"] = f'=IFERROR(INDEX(台账总览!$I:$I,{match_formula}),"")'  # 入库累计
+        ws["M9"] = f'=IFERROR(INDEX(台账总览!$J:$J,{match_formula}),"")'  # 出库次数
+        ws["M10"] = f'=IFERROR(INDEX(台账总览!$K:$K,{match_formula}),"")'  # 出库累计
+        ws["J8"] = '=IF(B3="","",IF(J6>=J7,"✓ 正常","⚠️ 库存不足"))'  # 库存状态
 
         # === Section 2: Inbound History ===
         ws.merge_cells("A10:L10")
