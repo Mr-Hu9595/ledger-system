@@ -1,13 +1,16 @@
 """Ledger repository for data access"""
 from datetime import date, time
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Optional, Dict
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from ledger_system.data.models.ledger import Ledger
 from ledger_system.data.models.inbound import Inbound
 from ledger_system.data.models.outbound import Outbound
+from ledger_system.data.models.material_property import MaterialProperty
+from ledger_system.data.models.equipment_property import EquipmentProperty
 
 
 class LedgerRepository:
@@ -23,7 +26,8 @@ class LedgerRepository:
         specification: str = "",
         unit: str = "",
         min_stock: Decimal = Decimal(0),
-        material_code: str = None
+        material_code: str = None,
+        purchase_date: date = None
     ) -> Ledger:
         """Create new ledger entry"""
         ledger = Ledger(
@@ -33,7 +37,8 @@ class LedgerRepository:
             unit=unit,
             current_stock=Decimal(0),
             min_stock=min_stock,
-            material_code=material_code
+            material_code=material_code,
+            purchase_date=purchase_date
         )
         self.session.add(ledger)
         self.session.flush()
@@ -68,20 +73,54 @@ class LedgerRepository:
         self.session.flush()
         return True
 
+    def _get_next_inbound_sequence(self, ledger_id: UUID) -> int:
+        """Get next inbound sequence number for ledger"""
+        max_seq = self.session.query(func.max(Inbound.inbound_sequence)).filter(
+            Inbound.ledger_id == ledger_id
+        ).scalar()
+        return (max_seq or 0) + 1
+
+    def _get_cumulative_in(self, ledger_id: UUID) -> Decimal:
+        """Get current cumulative inbound for ledger"""
+        total = self.session.query(func.sum(Inbound.quantity)).filter(
+            Inbound.ledger_id == ledger_id
+        ).scalar()
+        return total or Decimal(0)
+
+    def _get_next_outbound_sequence(self, ledger_id: UUID) -> int:
+        """Get next outbound sequence number for ledger"""
+        max_seq = self.session.query(func.max(Outbound.outbound_sequence)).filter(
+            Outbound.ledger_id == ledger_id
+        ).scalar()
+        return (max_seq or 0) + 1
+
+    def _get_cumulative_out(self, ledger_id: UUID) -> Decimal:
+        """Get current cumulative outbound for ledger"""
+        total = self.session.query(func.sum(Outbound.quantity)).filter(
+            Outbound.ledger_id == ledger_id
+        ).scalar()
+        return total or Decimal(0)
+
     def add_inbound(self, ledger_id: UUID, quantity: Decimal, supplier: str = "",
                     inbound_date: date = None, inbound_time: time = None,
                     inbound_operator: str = "", document_source: str = "",
                     original_document_path: str = "",
                     notes: str = "") -> Inbound:
-        """Add inbound record and update stock"""
+        """Add inbound record and update stock with sequence and cumulative"""
         if inbound_date is None:
             inbound_date = date.today()
         if inbound_time is None:
-            inbound_time = time(8, 0)  # 默认早上8点
+            inbound_time = time(8, 0)
+
+        # Calculate sequence and cumulative BEFORE adding
+        inbound_sequence = self._get_next_inbound_sequence(ledger_id)
+        cumulative_in = self._get_cumulative_in(ledger_id) + quantity
 
         inbound = Inbound(
             ledger_id=ledger_id,
             quantity=quantity,
+            inbound_sequence=inbound_sequence,
+            cumulative_in=cumulative_in,
             supplier=supplier,
             inbound_date=inbound_date,
             inbound_time=inbound_time,
@@ -102,19 +141,25 @@ class LedgerRepository:
                      receiver: str = "", outbound_operator: str = "",
                      original_document_path: str = "",
                      notes: str = "") -> Optional[Outbound]:
-        """Add outbound record and update stock (only if sufficient stock)"""
+        """Add outbound record and update stock with sequence and cumulative"""
         if outbound_date is None:
             outbound_date = date.today()
         if outbound_time is None:
-            outbound_time = time(8, 0)  # 默认早上8点
+            outbound_time = time(8, 0)
 
         ledger = self.get_ledger_by_id(ledger_id)
         if not ledger or ledger.current_stock < quantity:
             return None
 
+        # Calculate sequence and cumulative BEFORE adding
+        outbound_sequence = self._get_next_outbound_sequence(ledger_id)
+        cumulative_out = self._get_cumulative_out(ledger_id) + quantity
+
         outbound = Outbound(
             ledger_id=ledger_id,
             quantity=quantity,
+            outbound_sequence=outbound_sequence,
+            cumulative_out=cumulative_out,
             usage=usage,
             outbound_date=outbound_date,
             outbound_time=outbound_time,
@@ -169,3 +214,82 @@ class LedgerRepository:
         return self.session.query(Ledger).filter(
             Ledger.current_stock <= Ledger.min_stock
         ).all()
+
+    # ========== Property Management ==========
+
+    def add_material_property(self, ledger_id: UUID, property_key: str,
+                               property_value: str, property_type: str = "") -> MaterialProperty:
+        """Add a property to a material ledger entry"""
+        prop = MaterialProperty(
+            ledger_id=ledger_id,
+            property_key=property_key,
+            property_value=property_value,
+            property_type=property_type
+        )
+        self.session.add(prop)
+        self.session.flush()
+        return prop
+
+    def add_equipment_property(self, ledger_id: UUID, property_key: str,
+                               property_value: str, property_type: str = "") -> EquipmentProperty:
+        """Add a property to an equipment ledger entry"""
+        prop = EquipmentProperty(
+            ledger_id=ledger_id,
+            property_key=property_key,
+            property_value=property_value,
+            property_type=property_type
+        )
+        self.session.add(prop)
+        self.session.flush()
+        return prop
+
+    def get_material_properties(self, ledger_id: UUID) -> List[MaterialProperty]:
+        """Get all properties for a material ledger entry"""
+        return self.session.query(MaterialProperty).filter(
+            MaterialProperty.ledger_id == ledger_id
+        ).all()
+
+    def get_equipment_properties(self, ledger_id: UUID) -> List[EquipmentProperty]:
+        """Get all properties for an equipment ledger entry"""
+        return self.session.query(EquipmentProperty).filter(
+            EquipmentProperty.ledger_id == ledger_id
+        ).all()
+
+    def get_ledger_with_properties(self, ledger_id: UUID) -> Optional[Dict]:
+        """Get ledger entry with all its properties"""
+        ledger = self.get_ledger_by_id(ledger_id)
+        if not ledger:
+            return None
+
+        result = {
+            "ledger": ledger,
+            "properties": {}
+        }
+
+        if ledger.category == "material":
+            props = self.get_material_properties(ledger_id)
+            result["properties"] = {p.property_key: p.property_value for p in props}
+        elif ledger.category == "equipment":
+            props = self.get_equipment_properties(ledger_id)
+            result["properties"] = {p.property_key: p.property_value for p in props}
+
+        return result
+
+    def verify_stock(self, ledger_id: UUID) -> Dict[str, Decimal]:
+        """Verify current_stock by calculating from records"""
+        ledger = self.get_ledger_by_id(ledger_id)
+        if not ledger:
+            return {"error": "Ledger not found"}
+
+        cumulative_in = self._get_cumulative_in(ledger_id)
+        cumulative_out = self._get_cumulative_out(ledger_id)
+        calculated_stock = cumulative_in - cumulative_out
+
+        return {
+            "ledger_id": str(ledger_id),
+            "current_stock_recorded": ledger.current_stock,
+            "current_stock_calculated": calculated_stock,
+            "cumulative_in": cumulative_in,
+            "cumulative_out": cumulative_out,
+            "is_match": ledger.current_stock == calculated_stock
+        }
