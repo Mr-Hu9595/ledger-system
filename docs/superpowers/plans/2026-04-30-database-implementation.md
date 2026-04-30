@@ -1566,6 +1566,427 @@ git commit -m "feat: add migration script for new schema"
 
 ---
 
+---
+
+## Phase 4: 材料看板（交互式 Dashboard）
+
+### Task 12: 创建材料看板生成器
+
+**Files:**
+- Create: `ledger_system/business/report/dashboard_generator.py`
+
+- [ ] **Step 1: 创建 dashboard_generator.py**
+
+```python
+"""Material Dashboard Generator - Interactive Excel Dashboard"""
+from datetime import datetime, date
+from decimal import Decimal
+from typing import List, Dict, Optional
+from pathlib import Path
+
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.chart import BarChart, Reference
+
+from ledger_system.data.database import get_session
+from ledger_system.data.repository import LedgerRepository
+
+
+class DashboardGenerator:
+    """Generate interactive Excel dashboard for material lookup"""
+
+    def __init__(self):
+        self.repo = None
+
+    def generate(self, output_path: str) -> str:
+        """Generate interactive dashboard Excel file"""
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        wb = Workbook()
+
+        # Sheet 1: 材料看板 (Dashboard)
+        self._create_dashboard_sheet(wb)
+
+        # Sheet 2: 台账总览 (数据源)
+        self._create_ledger_data_sheet(wb)
+
+        # Sheet 3: 入库记录 (数据源)
+        self._create_inbound_data_sheet(wb)
+
+        # Sheet 4: 出库记录 (数据源)
+        self._create_outbound_data_sheet(wb)
+
+        wb.save(str(output_path))
+        return str(output_path)
+
+    def _create_dashboard_sheet(self, wb: Workbook) -> None:
+        """Create the interactive dashboard sheet"""
+        ws = wb.active
+        ws.title = "材料看板"
+
+        # Styles
+        header_font = Font(bold=True, size=14, color="FFFFFF")
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        section_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+        section_font = Font(bold=True, size=12)
+        thin_border = Border(
+            left=Side(style="thin"),
+            right=Side(style="thin"),
+            top=Side(style="thin"),
+            bottom=Side(style="thin")
+        )
+
+        # Title
+        ws.merge_cells("A1:L1")
+        ws["A1"] = "材料信息看板"
+        ws["A1"].font = Font(bold=True, size=18)
+        ws["A1"].alignment = Alignment(horizontal="center")
+
+        # Row 2: Search area
+        ws["A3"] = "搜索材料:"
+        ws["A3"].font = Font(bold=True)
+        ws["B3"] = "=IFERROR(INDEX(台账总览!B:B, MATCH(材料看板!B2, 台账总览!A:A, 0)), \"\")"
+        ws["B3"].font = Font(bold=True, size=12)
+        ws["B3"].fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+        ws["C3"] = "← 输入物料名称或选择"
+
+        # === Section 1: Basic Info ===
+        ws.merge_cells("A5:L5")
+        ws["A5"] = "基本信息"
+        ws["A5"].fill = section_fill
+        ws["A5"].font = section_font
+
+        basic_labels = [
+            ("名称", "B6"), ("规格", "B7"), ("类别", "B8"), ("单位", "C6"),
+            ("物料编码", "C7"), ("采购日期", "C8"), ("当前库存", "E6"),
+            ("最小库存", "E7"), ("库存状态", "E8"), ("累计入库", "G6"),
+            ("累计出库", "G7"), ("净入库量", "G8")
+        ]
+
+        for label, cell in basic_labels:
+            ws[cell] = label
+            ws[cell].font = Font(bold=True)
+            ws[cell].border = thin_border
+
+        # VLOOKUP formulas for basic info
+        ws["D6"] = "=IFERROR(VLOOKUP($B$3, 台账总览!A:N, 2, 0), \"\")"  # 名称
+        ws["D7"] = "=IFERROR(VLOOKUP($B$3, 台账总览!A:N, 3, 0), \"\")"  # 规格
+        ws["D8"] = "=IFERROR(VLOOKUP($B$3, 台账总览!A:N, 4, 0), \"\")"  # 类别
+        ws["D6"].border = thin_border
+        ws["D7"].border = thin_border
+        ws["D8"].border = thin_border
+
+        ws["E6"] = "=IFERROR(VLOOKUP($B$3, 台账总览!A:N, 5, 0), \"\")"  # 单位
+        ws["E7"] = "=IFERROR(VLOOKUP($B$3, 台账总览!A:N, 12, 0), \"\")"  # 物料编码
+        ws["E8"] = "=IFERROR(VLOOKUP($B$3, 台账总览!A:N, 13, 0), \"\")"  # 采购日期
+        ws["E6"].border = thin_border
+        ws["E7"].border = thin_border
+        ws["E8"].border = thin_border
+
+        ws["F6"] = "=IFERROR(VLOOKUP($B$3, 台账总览!A:N, 6, 0), \"\")"  # 当前库存
+        ws["F7"] = "=IFERROR(VLOOKUP($B$3, 台账总览!A:N, 7, 0), \"\")"  # 最小库存
+        ws["F8"] = "=IF(B3=\"\", \"\", IF(F6>=F7, \"✓ 正常\", \"⚠️ 库存不足\"))"  # 库存状态
+        ws["F6"].border = thin_border
+        ws["F7"].border = thin_border
+        ws["F8"].border = thin_border
+
+        ws["H6"] = "=IFERROR(VLOOKUP($B$3, 台账总览!A:N, 8, 0), \"\")"  # 累计入库
+        ws["H7"] = "=IFERROR(VLOOKUP($B$3, 台账总览!A:N, 9, 0), \"\")"  # 累计出库
+        ws["H8"] = "=IFERROR(VLOOKUP($B$3, 台账总览!A:N, 10, 0), \"\")"  # 净入库量
+        ws["H6"].border = thin_border
+        ws["H7"].border = thin_border
+        ws["H8"].border = thin_border
+
+        # === Section 2: Inbound History ===
+        ws.merge_cells("A10:L10")
+        ws["A10"] = "入库记录 (最近10条)"
+        ws["A10"].fill = section_fill
+        ws["A10"].font = section_font
+
+        # Header row
+        headers = ["序号", "日期", "时间", "数量", "单位", "累计入库", "供应商", "操作人", "备注"]
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=11, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = thin_border
+            cell.alignment = Alignment(horizontal="center")
+
+        # Data rows with VLOOKUP
+        for row in range(12, 22):  # 10 rows
+            ws.cell(row=row, column=1, value=f"第{row-11}次").border = thin_border
+            for col in range(2, 10):
+                ws.cell(row=row, column=col).border = thin_border
+
+        # === Section 3: Outbound History ===
+        ws.merge_cells("A24:L24")
+        ws["A24"] = "出库记录 (最近10条)"
+        ws["A24"].fill = section_fill
+        ws["A24"].font = section_font
+
+        # Header row
+        for col, header in enumerate(headers[:7], 1):
+            cell = ws.cell(row=25, column=col, value=header.replace("入库", "出库"))
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = thin_border
+            cell.alignment = Alignment(horizontal="center")
+
+        for row in range(26, 36):  # 10 rows
+            ws.cell(row=row, column=1, value=f"第{row-25}次").border = thin_border
+            for col in range(2, 8):
+                ws.cell(row=row, column=col).border = thin_border
+
+        # === Data Validation (Dropdown) ===
+        # Create named range for materials
+        # This will be populated when data sheets are created
+
+        # Set column widths
+        column_widths = {
+            "A": 15, "B": 18, "C": 18, "D": 15, "E": 12, "F": 15,
+            "G": 15, "H": 12, "I": 15, "J": 15, "K": 15, "L": 15
+        }
+        for col, width in column_widths.items():
+            ws.column_dimensions[col].width = width
+
+    def _create_ledger_data_sheet(self, wb: Workbook) -> None:
+        """Create ledger overview data sheet"""
+        ws = wb.create_sheet("台账总览")
+
+        with get_session() as session:
+            repo = LedgerRepository(session)
+            ledgers = repo.get_all_ledgers()
+
+            headers = ["名称", "规格", "类别", "单位", "当前库存", "最小库存",
+                      "累计入库", "累计出库", "净入库量", "状态", "物料编码", "采购日期", "ID"]
+
+            # Header row
+            for col, header in enumerate(headers, 1):
+                ws.cell(row=1, column=col, value=header)
+
+            # Data rows
+            for row_idx, l in enumerate(ledgers, 2):
+                inbounds = repo.get_inbound_history(l.id, days=99999)
+                outbounds = repo.get_outbound_history(l.id, days=99999)
+                cumulative_in = sum(ib.quantity for ib in inbounds) if inbounds else Decimal(0)
+                cumulative_out = sum(ob.quantity for ob in outbounds) if outbounds else Decimal(0)
+                net_in = cumulative_in - cumulative_out
+                status = "正常" if l.current_stock >= l.min_stock else "库存不足"
+
+                ws.cell(row=row_idx, column=1, value=l.name)
+                ws.cell(row=row_idx, column=2, value=l.specification)
+                ws.cell(row=row_idx, column=3, value=l.category)
+                ws.cell(row=row_idx, column=4, value=l.unit)
+                ws.cell(row=row_idx, column=5, value=float(l.current_stock))
+                ws.cell(row=row_idx, column=6, value=float(l.min_stock))
+                ws.cell(row=row_idx, column=7, value=float(cumulative_in))
+                ws.cell(row=row_idx, column=8, value=float(cumulative_out))
+                ws.cell(row=row_idx, column=9, value=float(net_in))
+                ws.cell(row=row_idx, column=10, value=status)
+                ws.cell(row=row_idx, column=11, value=l.material_code or "")
+                ws.cell(row=row_idx, column=12, value=l.purchase_date.isoformat() if l.purchase_date else "")
+                ws.cell(row=row_idx, column=13, value=str(l.id))
+
+        # Freeze top row
+        ws.freeze_panes = "A2"
+
+    def _create_inbound_data_sheet(self, wb: Workbook) -> None:
+        """Create inbound records data sheet"""
+        ws = wb.create_sheet("入库记录数据")
+
+        with get_session() as session:
+            repo = LedgerRepository(session)
+            inbounds = repo.get_all_inbounds(days=99999)
+
+            headers = ["物料名称", "序号", "日期", "时间", "数量", "单位",
+                      "累计入库", "供应商", "操作人", "备注"]
+
+            for col, header in enumerate(headers, 1):
+                ws.cell(row=1, column=col, value=header)
+
+            for row_idx, ib in enumerate(inbounds, 2):
+                ledger = repo.get_ledger_by_id(ib.ledger_id)
+                ws.cell(row=row_idx, column=1, value=ledger.name if ledger else "")
+                ws.cell(row=row_idx, column=2, value=ib.inbound_sequence)
+                ws.cell(row=row_idx, column=3, value=ib.inbound_date.isoformat())
+                ws.cell(row=row_idx, column=4, value=str(ib.inbound_time) if ib.inbound_time else "")
+                ws.cell(row=row_idx, column=5, value=float(ib.quantity))
+                ws.cell(row=row_idx, column=6, value=ledger.unit if ledger else "")
+                ws.cell(row=row_idx, column=7, value=float(ib.cumulative_in))
+                ws.cell(row=row_idx, column=8, value=ib.supplier)
+                ws.cell(row=row_idx, column=9, value=ib.inbound_operator)
+                ws.cell(row=row_idx, column=10, value=ib.notes)
+
+        ws.freeze_panes = "A2"
+
+    def _create_outbound_data_sheet(self, wb: Workbook) -> None:
+        """Create outbound records data sheet"""
+        ws = wb.create_sheet("出库记录数据")
+
+        with get_session() as session:
+            repo = LedgerRepository(session)
+            outbounds = repo.get_all_outbounds(days=99999)
+
+            headers = ["物料名称", "序号", "日期", "时间", "数量", "单位",
+                      "累计出库", "用途", "领用人", "操作人", "备注"]
+
+            for col, header in enumerate(headers, 1):
+                ws.cell(row=1, column=col, value=header)
+
+            for row_idx, ob in enumerate(outbounds, 2):
+                ledger = repo.get_ledger_by_id(ob.ledger_id)
+                ws.cell(row=row_idx, column=1, value=ledger.name if ledger else "")
+                ws.cell(row=row_idx, column=2, value=ob.outbound_sequence)
+                ws.cell(row=row_idx, column=3, value=ob.outbound_date.isoformat())
+                ws.cell(row=row_idx, column=4, value=str(ob.outbound_time) if ob.outbound_time else "")
+                ws.cell(row=row_idx, column=5, value=float(ob.quantity))
+                ws.cell(row=row_idx, column=6, value=ledger.unit if ledger else "")
+                ws.cell(row=row_idx, column=7, value=float(ob.cumulative_out))
+                ws.cell(row=row_idx, column=8, value=ob.usage)
+                ws.cell(row=row_idx, column=9, value=ob.receiver)
+                ws.cell(row=row_idx, column=10, value=ob.outbound_operator)
+                ws.cell(row=row_idx, column=11, value=ob.notes)
+
+        ws.freeze_panes = "A2"
+```
+
+- [ ] **Step 2: 提交**
+
+```bash
+git add ledger_system/business/report/dashboard_generator.py
+git commit -m "feat: add interactive material dashboard generator"
+```
+
+---
+
+### Task 13: 更新 export 命令 - 支持生成材料看板
+
+**Files:**
+- Modify: `ledger_system/program/commands/export.py`
+
+- [ ] **Step 1: 更新 export.py 添加看板生成功能**
+
+```python
+"""Export command - export reports and dashboard"""
+import sys
+from pathlib import Path
+from datetime import datetime
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from ledger_system.business.report.report_generator import ReportGenerator
+from ledger_system.business.report.dashboard_generator import DashboardGenerator
+
+
+class ExportCommand:
+    """Export ledger reports and dashboard"""
+
+    def execute(self, args):
+        """Execute export command"""
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Generate dashboard
+        if hasattr(args, "dashboard") and args.dashboard:
+            generator = DashboardGenerator()
+            result_path = generator.generate(str(output_path))
+            print(f"材料看板已生成: {result_path}")
+            return
+
+        # Parse date range
+        start_date = None
+        end_date = None
+        if hasattr(args, "start") and args.start:
+            start_date = datetime.fromisoformat(args.start).date()
+        if hasattr(args, "end") and args.end:
+            end_date = datetime.fromisoformat(args.end).date()
+
+        # Handle selected items export
+        if hasattr(args, "selected") and args.selected:
+            generator = ReportGenerator()
+            result_path = generator.generate_selected_report(
+                args.selected, str(output_path)
+            )
+            print(f"选中物料报表已导出: {result_path}")
+            return
+
+        # Full export
+        generator = ReportGenerator()
+        result_path = generator.generate_full_report(
+            str(output_path), start_date, end_date
+        )
+        print(f"报表已导出: {result_path}")
+```
+
+- [ ] **Step 2: 更新 CLI 添加 dashboard 参数**
+
+在 `ledger_system/program/cli.py` 中更新：
+
+```python
+export_parser.add_argument("--dashboard", action="store_true",
+                         help="生成交互式材料看板")
+```
+
+- [ ] **Step 3: 提交**
+
+```bash
+git add ledger_system/program/commands/export.py ledger_system/program/cli.py
+git commit -m "feat: add dashboard generation to export command"
+```
+
+---
+
+## Phase 5: 看板公式联动（高级交互）
+
+### Task 14: 实现看板与数据源的公式联动
+
+**Files:**
+- Modify: `ledger_system/business/report/dashboard_generator.py`
+
+- [ ] **Step 1: 更新 dashboard_generator.py 添加完整公式联动**
+
+```python
+"""Dashboard Generator - Enhanced with formula linkages"""
+# 在 _create_dashboard_sheet 方法中添加以下公式联动
+
+# 入库记录公式 - 使用 INDEX/MATCH
+inbound_headers = ["序号", "日期", "时间", "数量", "单位", "累计入库", "供应商", "操作人", "备注"]
+for row in range(12, 22):  # 10 rows
+    # 序号
+    ws.cell(row=row, column=1,
+            value=f'=IFERROR(INDEX(入库记录数据!B$2:B$1000, MATCH(1, (入库记录数据!A$2:A$1000=$B$3)*(入库记录数据!B$2:B$1000={row-11}), 0)), "")')
+    # 简化版 - 使用辅助列
+    # 由于 Excel 数组公式复杂，使用 SUMIFS 简化
+    ws.cell(row=row, column=1, value=f"第{row-11}次")
+    ws.cell(row=row, column=2,
+            value=f'=IFERROR(INDEX(入库记录数据!C:C, SMALL(IF(入库记录数据!A$2:A$1000=$B$3, ROW(入库记录数据!A$2:A$1000)-1), {row-11})), "")')
+    ws.cell(row=row, column=4,
+            value=f'=IFERROR(INDEX(入库记录数据!E:E, SMALL(IF(入库记录数据!A$2:A$1000=$B$3, ROW(入库记录数据!A$2:A$1000)-1), {row-11})), "")')
+    ws.cell(row=row, column=6,
+            value=f'=IFERROR(INDEX(入库记录数据!G:G, SMALL(IF(入库记录数据!A$2:A$1000=$B$3, ROW(入库记录数据!A$2:A$1000)-1), {row-11})), "")')
+    ws.cell(row=row, column=8,
+            value=f'=IFERROR(INDEX(入库记录数据!H:H, SMALL(IF(入库记录数据!A$2:A$1000=$B$3, ROW(入库记录数据!A$2:A$1000)-1), {row-11})), "")')
+
+# 注: 完整公式联动需要 Excel 支持动态数组，或使用 VBA/脚本辅助
+# 建议: 使用 Python 脚本定期刷新数据源，确保看板显示最新数据
+```
+
+- [ ] **Step 2: 添加多选物料功能**
+
+在看板中添加多选列表区域，显示已选中的多个物料。
+
+- [ ] **Step 3: 提交**
+
+```bash
+git add ledger_system/business/report/dashboard_generator.py
+git commit -m "feat: enhance dashboard with formula linkages"
+```
+
+---
+
 ## 实施总结
 
 | Phase | Task | Description |
@@ -1581,6 +2002,9 @@ git commit -m "feat: add migration script for new schema"
 | 2 | 9 | Excel 报表生成器 |
 | 2 | 10 | export 命令更新 |
 | 3 | 11 | 数据迁移脚本 |
+| 4 | 12 | 材料看板生成器 (DashboardGenerator) |
+| 4 | 13 | export 命令添加 --dashboard 参数 |
+| 5 | 14 | 看板公式联动增强 |
 
 ---
 
