@@ -1,5 +1,5 @@
 """Outbound (出库记录) model"""
-from sqlalchemy import Column, String, Numeric, Date, Time, Text, ForeignKey
+from sqlalchemy import Column, String, Numeric, Date, Time, Text, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from ledger_system.data.models.base import BaseModel
@@ -11,6 +11,8 @@ class Outbound(BaseModel):
 
     ledger_id = Column(UUID(as_uuid=True), ForeignKey("ledger.id"), nullable=False)
     quantity = Column(Numeric(precision=10, scale=2), nullable=False)
+    outbound_sequence = Column(Integer, nullable=False, default=0)  # 第N次出库
+    cumulative_out = Column(Numeric(precision=10, scale=2), nullable=False, default=0)  # 累计出库量
     usage = Column(String(200), default="")
     outbound_date = Column(Date, nullable=False)
     outbound_time = Column(Time, nullable=False)
@@ -23,4 +25,4 @@ class Outbound(BaseModel):
     ledger = relationship("Ledger", backref="outbound_records")
 
     def __repr__(self):
-        return f"<Outbound {self.ledger_id}: -{self.quantity}>"
+        return f"<Outbound {self.ledger_id}: -{self.quantity} (seq:{self.outbound_sequence})>"
