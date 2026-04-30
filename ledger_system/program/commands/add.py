@@ -12,8 +12,6 @@ from ledger_system.business.nlp.rule_engine import RuleEngine
 from ledger_system.business.learning.feedback import FeedbackLearning
 from ledger_system.business.learning.diff_logger import DiffLogger
 from ledger_system.business.code_generator import CodeGenerator
-from ledger_system.business.document.document_manager import DocumentManager
-from ledger_system.business.report.report_sync import ReportSync
 
 
 class AddCommand:
@@ -134,7 +132,7 @@ class AddCommand:
             # Add inbound
             from decimal import Decimal
 
-            inbound = repo.add_inbound(
+            repo.add_inbound(
                 ledger_id=ledger.id,
                 quantity=Decimal(str(result.get("quantity", 0))),
                 supplier=result.get("supplier", ""),
@@ -144,25 +142,4 @@ class AddCommand:
                 notes=f"来源: 自然语言录入"
             )
 
-            # 保存原始单据摘要
-            doc_mgr = DocumentManager(session)
-            txt_path = doc_mgr._create_summary_txt(
-                txt_path=Path("D:/工作/日常工作/台账/documents") / f"temp_{inbound.id}.txt",
-                material_name=result["material_name"],
-                quantity=float(result.get("quantity", 0)),
-                supplier=result.get("supplier", ""),
-                document_type="inbound",
-                original_file="自然语言录入",
-                notes=f"来源: 自然语言录入"
-            )
-            # 更新入库记录的单据路径
-            inbound.original_document_path = txt_path
-            session.flush()
-
             print(f"入库成功! 当前库存: {ledger.current_stock}")
-
-            # 同步报表
-            print("正在同步报表...")
-            report_sync = ReportSync()
-            report_sync.sync_all()
-            print(f"报表已更新: {report_sync.REPORT_FILE}")

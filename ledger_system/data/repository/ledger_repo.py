@@ -71,7 +71,6 @@ class LedgerRepository:
     def add_inbound(self, ledger_id: UUID, quantity: Decimal, supplier: str = "",
                     inbound_date: date = None, inbound_time: time = None,
                     inbound_operator: str = "", document_source: str = "",
-                    original_document_path: str = "",
                     notes: str = "") -> Inbound:
         """Add inbound record and update stock"""
         if inbound_date is None:
@@ -87,7 +86,6 @@ class LedgerRepository:
             inbound_time=inbound_time,
             inbound_operator=inbound_operator,
             document_source=document_source,
-            original_document_path=original_document_path,
             notes=notes
         )
         self.session.add(inbound)
@@ -100,7 +98,6 @@ class LedgerRepository:
     def add_outbound(self, ledger_id: UUID, quantity: Decimal, usage: str = "",
                      outbound_date: date = None, outbound_time: time = None,
                      receiver: str = "", outbound_operator: str = "",
-                     original_document_path: str = "",
                      notes: str = "") -> Optional[Outbound]:
         """Add outbound record and update stock (only if sufficient stock)"""
         if outbound_date is None:
@@ -120,7 +117,6 @@ class LedgerRepository:
             outbound_time=outbound_time,
             receiver=receiver,
             outbound_operator=outbound_operator,
-            original_document_path=original_document_path,
             notes=notes
         )
         self.session.add(outbound)
@@ -129,22 +125,6 @@ class LedgerRepository:
         self.update_stock(ledger_id, -quantity)
 
         return outbound
-
-    def get_all_inbounds(self, days: int = 99999) -> List[Inbound]:
-        """Get all inbound records"""
-        from datetime import timedelta
-        start_date = date.today() - timedelta(days=days)
-        return self.session.query(Inbound).filter(
-            Inbound.inbound_date >= start_date
-        ).order_by(Inbound.inbound_date.desc(), Inbound.inbound_time.desc()).all()
-
-    def get_all_outbounds(self, days: int = 99999) -> List[Outbound]:
-        """Get all outbound records"""
-        from datetime import timedelta
-        start_date = date.today() - timedelta(days=days)
-        return self.session.query(Outbound).filter(
-            Outbound.outbound_date >= start_date
-        ).order_by(Outbound.outbound_date.desc(), Outbound.outbound_time.desc()).all()
 
     def get_inbound_history(self, ledger_id: UUID, days: int = 30) -> List[Inbound]:
         """Get inbound history for ledger"""

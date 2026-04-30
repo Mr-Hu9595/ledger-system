@@ -5,7 +5,6 @@ from ledger_system.program.commands.add import AddCommand
 from ledger_system.program.commands.query import QueryCommand
 from ledger_system.program.commands.process import ProcessCommand
 from ledger_system.program.commands.export import ExportCommand
-from ledger_system.program.commands.sync import SyncCommand
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -44,10 +43,6 @@ def create_parser() -> argparse.ArgumentParser:
     export_parser.add_argument("--start", help="开始日期 YYYY-MM-DD")
     export_parser.add_argument("--end", help="结束日期 YYYY-MM-DD")
 
-    # Sync command
-    sync_parser = subparsers.add_parser("sync", help="同步报表")
-    sync_parser.add_argument("--open", action="store_true", help="同步后打开Excel")
-
     # Help command
     help_parser = subparsers.add_parser("help", help="显示帮助")
 
@@ -79,9 +74,6 @@ def main():
         cmd.execute(args)
     elif args.command == "export":
         cmd = ExportCommand()
-        cmd.execute(args)
-    elif args.command == "sync":
-        cmd = SyncCommand()
         cmd.execute(args)
     else:
         print(f"未知命令: {args.command}")
