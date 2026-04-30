@@ -98,6 +98,18 @@ class DashboardGenerator:
             ws[label_cell].border = thin_border
             ws[value_cell].border = thin_border
 
+        # VLOOKUP formulas for basic info - search term is in B3
+        # 台账总览 column mapping: A=名称,B=规格,C=类别,D=单位,E=当前库存,F=最小库存,G=累计入库,H=累计出库,I=净入库量,J=状态,K=物料编码,L=采购日期
+        ws["D6"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:M,2,0),"")'  # 名称
+        ws["D7"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:M,3,0),"")'  # 规格
+        ws["D8"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:M,4,0),"")'  # 类别
+        ws["G6"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:M,5,0),"")'  # 单位
+        ws["G7"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:M,12,0),"")'  # 物料编码
+        ws["G8"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:M,13,0),"")'  # 采购日期
+        ws["J6"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:M,6,0),"")'  # 当前库存
+        ws["J7"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:M,7,0),"")'  # 最小库存
+        ws["J8"] = '=IF(B3="","",IF(J6>=J7,"✓ 正常","⚠️ 库存不足"))'  # 库存状态
+
         # === Section 2: Inbound History ===
         ws.merge_cells("A10:L10")
         ws["A10"] = "入库记录 (最近10条)"
