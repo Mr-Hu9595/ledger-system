@@ -1,5 +1,6 @@
 """Add command - natural language ledger entry"""
 import sys
+import logging
 from pathlib import Path
 
 # Add project root to path
@@ -15,6 +16,8 @@ from ledger_system.business.code_generator import CodeGenerator
 from ledger_system.business.document.document_manager import DocumentManager
 from ledger_system.business.report.report_sync import ReportSync
 
+logger = logging.getLogger("ledger.add")
+
 
 class AddCommand:
     """Add ledger entry using natural language"""
@@ -26,19 +29,19 @@ class AddCommand:
     def execute(self, args):
         """Execute add command"""
         text = " ".join(args.text)
-        print(f"正在解析: {text}")
+        logger.info(f"正在解析: {text}")
 
         # Try AI extraction first
         ai_result = {}
         try:
             ai_result = self.ai_service.extract_entities(text)
-            print(f"AI解析结果: {ai_result}")
+            logger.info(f"AI解析结果: {ai_result}")
         except Exception as e:
-            print(f"AI解析失败: {e}")
+            logger.warning(f"AI解析失败: {e}", exc_info=True)
 
         # Rule engine fallback
         rule_result = self.rule_engine.extract_entities(text)
-        print(f"规则解析结果: {rule_result}")
+        logger.info(f"规则解析结果: {rule_result}")
 
         # Use AI result if available, otherwise use rule
         if ai_result.get("material_name"):
@@ -53,6 +56,7 @@ class AddCommand:
 
         # Check if we have enough info
         if not final_result.get("material_name"):
+            logger.error("错误: 未能识别材料名称")
             print("错误: 未能识别材料名称")
             return
 

@@ -43,10 +43,8 @@ class DocumentParser:
             return {"error": str(e), "source": "image_ocr"}
 
     def _parse_pdf(self, path: Path) -> Dict[str, Any]:
-        """Parse PDF file"""
+        """Parse PDF file using pdfplumber"""
         try:
-            # For PDF, we'd normally use pdfplumber or PyPDF2
-            # For now, treat as text extraction needed
             content = self._extract_pdf_text(path)
             result = self.ai_service.parse_document_content(content, "pdf")
             result["source"] = "pdf"
@@ -72,13 +70,15 @@ class DocumentParser:
             return {"error": str(e), "source": "excel"}
 
     def _parse_word(self, path: Path) -> Dict[str, Any]:
-        """Parse Word document"""
+        """Parse Word document using python-docx"""
         try:
-            # For Word, we'd normally use python-docx
-            # Placeholder for now
-            content = f"Word document: {path.name}"
+            from docx import Document
+            doc = Document(path)
+            paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+            content = "\n".join(paragraphs)
             result = self.ai_service.parse_document_content(content, "word")
             result["source"] = "word"
+            result["raw_content"] = content[:2000]
             return result
         except Exception as e:
             return {"error": str(e), "source": "word"}
@@ -97,6 +97,12 @@ class DocumentParser:
             return {"error": str(e), "source": "text"}
 
     def _extract_pdf_text(self, path: Path) -> str:
-        """Extract text from PDF"""
-        # Placeholder - would use pdfplumber
-        return f"PDF content from {path.name}"
+        """Extract text from PDF using pdfplumber"""
+        import pdfplumber
+        text_parts = []
+        with pdfplumber.open(path) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text_parts.append(page_text)
+        return "\n".join(text_parts)

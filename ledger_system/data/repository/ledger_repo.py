@@ -74,7 +74,11 @@ class LedgerRepository:
         return True
 
     def _get_next_inbound_sequence(self, ledger_id: UUID) -> int:
-        """Get next inbound sequence number for ledger"""
+        """Get next inbound sequence number for ledger (requires ledger lock held)"""
+        # Lock ledger row to prevent race conditions on sequence generation
+        self.session.query(Ledger).filter(
+            Ledger.id == ledger_id
+        ).with_for_update().first()
         max_seq = self.session.query(func.max(Inbound.inbound_sequence)).filter(
             Inbound.ledger_id == ledger_id
         ).scalar()
@@ -88,7 +92,11 @@ class LedgerRepository:
         return total or Decimal(0)
 
     def _get_next_outbound_sequence(self, ledger_id: UUID) -> int:
-        """Get next outbound sequence number for ledger"""
+        """Get next outbound sequence number for ledger (requires ledger lock held)"""
+        # Lock ledger row to prevent race conditions on sequence generation
+        self.session.query(Ledger).filter(
+            Ledger.id == ledger_id
+        ).with_for_update().first()
         max_seq = self.session.query(func.max(Outbound.outbound_sequence)).filter(
             Outbound.ledger_id == ledger_id
         ).scalar()

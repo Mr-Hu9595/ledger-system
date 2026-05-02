@@ -29,7 +29,7 @@ class DashboardGenerator:
         # Sheet 1: 材料看板 (Dashboard)
         self._create_dashboard_sheet(wb)
 
-        # Sheet 2: 台账总览 (数据源)
+        # Sheet 2: 台账总览 (数据源，含搜索关键字列)
         self._create_ledger_data_sheet(wb)
 
         # Sheet 3: 入库记录 (数据源)
@@ -42,12 +42,12 @@ class DashboardGenerator:
         return str(output_path)
 
     def _create_dashboard_sheet(self, wb: Workbook) -> None:
-        """Create the interactive dashboard sheet"""
+        """Create the interactive dashboard sheet per spec 5.2"""
         ws = wb.active
         ws.title = "材料看板"
 
         # Styles
-        header_font = Font(bold=True, size=14, color="FFFFFF")
+        header_font = Font(bold=True, size=11, color="FFFFFF")
         header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
         section_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
         section_font = Font(bold=True, size=12)
@@ -57,123 +57,212 @@ class DashboardGenerator:
             top=Side(style="thin"),
             bottom=Side(style="thin")
         )
+        yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+        blue_btn_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
 
-        # Title
-        ws.merge_cells("A1:L1")
+        # ===== Row 1: Title =====
+        ws.merge_cells("A1:F1")
         ws["A1"] = "材料信息看板"
-        ws["A1"].font = Font(bold=True, size=18)
+        ws["A1"].font = Font(bold=True, size=20)
         ws["A1"].alignment = Alignment(horizontal="center")
 
-        # Row 3: Search area
+        # ===== Row 3: Search area =====
         ws["A3"] = "搜索材料:"
         ws["A3"].font = Font(bold=True)
-        ws["B3"] = ""  # User input cell
-        ws["B3"].fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+        ws["B3"] = ""
+        ws["B3"].fill = yellow_fill
         ws["B3"].border = thin_border
-        ws["C3"] = "← 输入物料名称"
-        ws["C3"].font = Font(italic=True, color="666666")
+        ws["C3"] = "[搜索材料 ▼]"
+        ws["C3"].font = Font(color="0070C0")
+        ws["D3"] = ""
+        ws["E3"] = "[+ 添加]"
+        ws["E3"].font = Font(color="0070C0")
 
-        # === Section 1: Basic Info ===
-        ws.merge_cells("A5:L5")
-        ws["A5"] = "基本信息"
+        # ===== Row 5: 已选中材料 =====
+        ws.merge_cells("A5:F5")
+        ws["A5"] = "已选中材料:"
         ws["A5"].fill = section_fill
         ws["A5"].font = section_font
 
-        # Basic info labels and values
-        basic_info = [
-            ("名称", "B6", "D6"),
-            ("规格", "B7", "D7"),
-            ("类别", "B8", "D8"),
-            ("单位", "F6", "G6"),
-            ("物料编码", "F7", "G7"),
-            ("采购日期", "F8", "G8"),
-            ("当前库存", "I6", "J6"),
-            ("最小库存", "I7", "J7"),
-            ("库存状态", "I8", "J8"),
-        ]
+        # Row 6: checkbox list
+        ws.merge_cells("A6:F6")
+        ws["A6"] = "☐（在搜索框输入关键词后，相关物料会显示在此处，选中后可添加到列表）"
+        ws["A6"].font = Font(italic=True, color="888888", size=10)
 
-        for label, label_cell, value_cell in basic_info:
-            ws[label_cell] = label + ":"
-            ws[label_cell].font = Font(bold=True)
-            ws[label_cell].border = thin_border
-            ws[value_cell].border = thin_border
+        # ===== Row 8: 基本信息 =====
+        ws.merge_cells("A8:F8")
+        ws["A8"] = "═══ 材料基本信息 ═══"
+        ws["A8"].fill = section_fill
+        ws["A8"].font = section_font
+        ws["A8"].alignment = Alignment(horizontal="center")
 
-        # VLOOKUP formulas for basic info - search term is in B3
-        # 台账总览 column mapping: A=名称,B=规格,C=类别,D=单位,E=当前库存,F=最小库存,G=累计入库,H=累计出库,I=净入库量,J=状态,K=物料编码,L=采购日期
-        ws["D6"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:M,2,0),"")'  # 名称
-        ws["D7"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:M,3,0),"")'  # 规格
-        ws["D8"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:M,4,0),"")'  # 类别
-        ws["G6"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:M,5,0),"")'  # 单位
-        ws["G7"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:M,12,0),"")'  # 物料编码
-        ws["G8"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:M,13,0),"")'  # 采购日期
-        ws["J6"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:M,6,0),"")'  # 当前库存
-        ws["J7"] = '=IFERROR(VLOOKUP($B$3,台账总览!A:M,7,0),"")'  # 最小库存
-        ws["J8"] = '=IF(B3="","",IF(J6>=J7,"✓ 正常","⚠️ 库存不足"))'  # 库存状态
+        # Row 9: 名称:  分类:  单位: labels (B9/D9/F9)
+        ws["A9"] = "名称:"
+        ws["A9"].font = Font(bold=True)
+        ws["B9"].border = thin_border
+        ws["C9"] = "分类:"
+        ws["C9"].font = Font(bold=True)
+        ws["D9"].border = thin_border
+        ws["E9"] = "单位:"
+        ws["E9"].font = Font(bold=True)
+        ws["F9"].border = thin_border
 
-        # === Section 2: Inbound History ===
-        ws.merge_cells("A10:L10")
-        ws["A10"] = "入库记录 (最近10条)"
-        ws["A10"].fill = section_fill
-        ws["A10"].font = section_font
+        # Row 10: 规格:  物料编码:  采购日期: labels and values
+        ws["A10"] = "规格:"
+        ws["A10"].font = Font(bold=True)
+        ws["B10"].border = thin_border
+        ws["C10"] = "物料编码:"
+        ws["C10"].font = Font(bold=True)
+        ws["D10"].border = thin_border
+        ws["E10"] = "采购日期:"
+        ws["E10"].font = Font(bold=True)
+        ws["F10"].border = thin_border
 
-        # Header row for inbound
-        inbound_headers = ["序号", "日期", "时间", "数量", "单位", "累计入库", "供应商", "操作人", "备注"]
-        for col, header in enumerate(inbound_headers, 1):
-            cell = ws.cell(row=11, column=col, value=header)
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.border = thin_border
-            cell.alignment = Alignment(horizontal="center")
+        # ===== Row 12: 物料属性 =====
+        ws.merge_cells("A12:F12")
+        ws["A12"] = "═══ 物料属性 ═══"
+        ws["A12"].fill = section_fill
+        ws["A12"].font = section_font
+        ws["A12"].alignment = Alignment(horizontal="center")
 
-        # Data rows for inbound (empty, will be filled by formulas or manual)
-        for row in range(12, 22):  # 10 rows
-            ws.cell(row=row, column=1, value=f"第{row-11}次").border = thin_border
-            for col in range(2, 10):
+        # Row 13: 执行标准:  材质:  介质: (B13/D13/F13)
+        ws["A13"] = "执行标准:"
+        ws["A13"].font = Font(bold=True)
+        ws["B13"].border = thin_border
+        ws["C13"] = "材质:"
+        ws["C13"].font = Font(bold=True)
+        ws["D13"].border = thin_border
+        ws["E13"] = "介质:"
+        ws["E13"].font = Font(bold=True)
+        ws["F13"].border = thin_border
+
+        # ===== Row 15: 库存情况 =====
+        ws.merge_cells("A15:F15")
+        ws["A15"] = "═══ 库存情况 ═══"
+        ws["A15"].fill = section_fill
+        ws["A15"].font = section_font
+        ws["A15"].alignment = Alignment(horizontal="center")
+
+        # Row 16: 4 column headers
+        stock_headers = ["当前库存", "最小库存", "计划采购", "库存状态"]
+        stock_cols = ["A", "B", "C", "D"]
+        for col, header in zip(stock_cols, stock_headers):
+            ws[f"{col}16"] = header
+            ws[f"{col}16"].font = header_font
+            ws[f"{col}16"].fill = header_fill
+            ws[f"{col}16"].border = thin_border
+            ws[f"{col}16"].alignment = Alignment(horizontal="center")
+
+        # Row 17: values
+        for col in stock_cols:
+            ws[f"{col}17"].border = thin_border
+        ws["A17"] = '=IFERROR(INDEX(台账总览!F:F,SUMPRODUCT(MAX((ISNUMBER(SEARCH($B$3,台账总览!A:A)))*ROW(台账总览!A:A))))),"")'
+        ws["B17"] = '=IFERROR(INDEX(台账总览!G:G,SUMPRODUCT(MAX((ISNUMBER(SEARCH($B$3,台账总览!A:A)))*ROW(台账总览!A:A))))),"")'
+        ws["C17"] = '=IFERROR(INDEX(台账总览!H:H,SUMPRODUCT(MAX((ISNUMBER(SEARCH($B$3,台账总览!A:A)))*ROW(台账总览!A:A))))),"")'
+        ws["D17"] = '=IF(B3="","",IF(A17>=B17,"✓ 正常","⚠️ 库存不足"))'
+
+        # ===== Row 19: 入库情况 =====
+        ws.merge_cells("A19:F19")
+        ws["A19"] = "═══ 入库情况 ═══"
+        ws["A19"].fill = section_fill
+        ws["A19"].font = section_font
+        ws["A19"].alignment = Alignment(horizontal="center")
+
+        # Row 20: 累计入库:  X吨  第X次入库  最近: 日期 供应商 X吨
+        ws["A20"] = "累计入库:"
+        ws["A20"].font = Font(bold=True)
+        ws["B20"] = '=IFERROR(INDEX(台账总览!I:I,SUMPRODUCT(MAX((ISNUMBER(SEARCH($B$3,台账总览!A:A)))*ROW(台账总览!A:A))))),"")'
+        ws["C20"] = "吨  第"
+        ws["D20"] = '=IFERROR(INDEX(台账总览!H:H,SUMPRODUCT(MAX((ISNUMBER(SEARCH($B$3,台账总览!A:A)))*ROW(台账总览!A:A))))),"")'
+        ws["D20"].font = Font(bold=True)
+        ws["E20"] = "次入库  最近:"
+
+        # Row 21: 入库 table header
+        ib_headers = ["序号", "日期", "数量", "供应商", "操作人"]
+        ib_cols = ["A", "B", "C", "D", "E"]
+        for col, header in zip(ib_cols, ib_headers):
+            ws[f"{col}21"] = header
+            ws[f"{col}21"].font = header_font
+            ws[f"{col}21"].fill = header_fill
+            ws[f"{col}21"].border = thin_border
+            ws[f"{col}21"].alignment = Alignment(horizontal="center")
+
+        # Rows 22-26: inbound data rows
+        for row in range(22, 27):
+            ws.cell(row=row, column=1, value=f"第{row-21}次").border = thin_border
+            for col in range(2, 6):
                 ws.cell(row=row, column=col).border = thin_border
 
-        # === Section 3: Outbound History ===
-        ws.merge_cells("A24:L24")
-        ws["A24"] = "出库记录 (最近10条)"
-        ws["A24"].fill = section_fill
-        ws["A24"].font = section_font
+        # ===== Row 28: 出库情况 =====
+        ws.merge_cells("A28:F28")
+        ws["A28"] = "═══ 出库情况 ═══"
+        ws["A28"].fill = section_fill
+        ws["A28"].font = section_font
+        ws["A28"].alignment = Alignment(horizontal="center")
 
-        # Header row for outbound
-        outbound_headers = ["序号", "日期", "时间", "数量", "单位", "累计出库", "用途", "领用人", "操作人", "备注"]
-        for col, header in enumerate(outbound_headers, 1):
-            cell = ws.cell(row=25, column=col, value=header)
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.border = thin_border
-            cell.alignment = Alignment(horizontal="center")
+        # Row 29: 累计出库:  X吨  第X次出库  最近: 日期 用途 X吨
+        ws["A29"] = "累计出库:"
+        ws["A29"].font = Font(bold=True)
+        ws["B29"] = '=IFERROR(INDEX(台账总览!K:K,SUMPRODUCT(MAX((ISNUMBER(SEARCH($B$3,台账总览!A:A)))*ROW(台账总览!A:A))))),"")'
+        ws["C29"] = "吨  第"
+        ws["D29"] = '=IFERROR(INDEX(台账总览!J:J,SUMPRODUCT(MAX((ISNUMBER(SEARCH($B$3,台账总览!A:A)))*ROW(台账总览!A:A))))),"")'
+        ws["D29"].font = Font(bold=True)
+        ws["E29"] = "次出库  最近:"
 
-        # Data rows for outbound
-        for row in range(26, 36):  # 10 rows
-            ws.cell(row=row, column=1, value=f"第{row-25}次").border = thin_border
-            for col in range(2, 11):
+        # Row 30: 出库 table header
+        ob_headers = ["序号", "日期", "数量", "用途", "领用人"]
+        ob_cols = ["A", "B", "C", "D", "E"]
+        for col, header in zip(ob_cols, ob_headers):
+            ws[f"{col}30"] = header
+            ws[f"{col}30"].font = header_font
+            ws[f"{col}30"].fill = header_fill
+            ws[f"{col}30"].border = thin_border
+            ws[f"{col}30"].alignment = Alignment(horizontal="center")
+
+        # Rows 31-35: outbound data rows
+        for row in range(31, 36):
+            ws.cell(row=row, column=1, value=f"第{row-30}次").border = thin_border
+            for col in range(2, 6):
                 ws.cell(row=row, column=col).border = thin_border
 
-        # Set column widths
-        column_widths = {
-            "A": 12, "B": 15, "C": 15, "D": 15, "E": 10, "F": 15,
-            "G": 18, "H": 12, "I": 15, "J": 12, "K": 15, "L": 15
-        }
-        for col, width in column_widths.items():
-            ws.column_dimensions[col].width = width
+        # ===== Row 37: Action buttons =====
+        ws["A37"] = "刷新数据"
+        ws["A37"].font = Font(bold=True, color="FFFFFF")
+        ws["A37"].fill = blue_btn_fill
+        ws["A37"].alignment = Alignment(horizontal="center")
+        ws["A37"].border = thin_border
 
-        # Add data validation for material name dropdown
-        # Note: This creates a simple dropdown - actual implementation would
-        # need to reference the data sheet for the list
+        ws["C37"] = "查询选中条目详情"
+        ws["C37"].font = Font(bold=True, color="FFFFFF")
+        ws["C37"].fill = blue_btn_fill
+        ws["C37"].alignment = Alignment(horizontal="center")
+        ws["C37"].border = thin_border
+
+        ws["E37"] = "合并导出选中条目"
+        ws["E37"].font = Font(bold=True, color="FFFFFF")
+        ws["E37"].fill = blue_btn_fill
+        ws["E37"].alignment = Alignment(horizontal="center")
+        ws["E37"].border = thin_border
+
+        # Column widths
+        ws.column_dimensions["A"].width = 12
+        ws.column_dimensions["B"].width = 14
+        ws.column_dimensions["C"].width = 12
+        ws.column_dimensions["D"].width = 14
+        ws.column_dimensions["E"].width = 12
+        ws.column_dimensions["F"].width = 14
 
     def _create_ledger_data_sheet(self, wb: Workbook) -> None:
-        """Create ledger overview data sheet"""
+        """Create ledger overview data sheet with search keyword column"""
         ws = wb.create_sheet("台账总览")
 
         with get_session() as session:
             repo = LedgerRepository(session)
             ledgers = repo.get_all_ledgers()
 
-            headers = ["名称", "规格", "类别", "单位", "当前库存", "最小库存",
-                      "累计入库", "累计出库", "净入库量", "状态", "物料编码", "采购日期", "ID"]
+            # Column A: 搜索关键字 (name | spec | category | material_code)
+            headers = ["搜索关键字", "名称", "规格", "类别", "单位", "当前库存", "最小库存",
+                       "入库次数", "累计入库", "出库次数", "累计出库", "净入库量", "物料编码", "采购日期", "ID"]
 
             # Header row
             for col, header in enumerate(headers, 1):
@@ -186,23 +275,33 @@ class DashboardGenerator:
                 cumulative_in = sum(ib.quantity for ib in inbounds) if inbounds else Decimal(0)
                 cumulative_out = sum(ob.quantity for ob in outbounds) if outbounds else Decimal(0)
                 net_in = cumulative_in - cumulative_out
-                status = "正常" if l.current_stock >= l.min_stock else "库存不足"
+                inbound_count = len(inbounds)
+                outbound_count = len(outbounds)
 
-                ws.cell(row=row_idx, column=1, value=l.name)
-                ws.cell(row=row_idx, column=2, value=l.specification)
-                ws.cell(row=row_idx, column=3, value=l.category)
-                ws.cell(row=row_idx, column=4, value=l.unit)
-                ws.cell(row=row_idx, column=5, value=float(l.current_stock))
-                ws.cell(row=row_idx, column=6, value=float(l.min_stock))
-                ws.cell(row=row_idx, column=7, value=float(cumulative_in))
-                ws.cell(row=row_idx, column=8, value=float(cumulative_out))
-                ws.cell(row=row_idx, column=9, value=float(net_in))
-                ws.cell(row=row_idx, column=10, value=status)
-                ws.cell(row=row_idx, column=11, value=l.material_code or "")
-                ws.cell(row=row_idx, column=12, value=l.purchase_date.isoformat() if l.purchase_date else "")
-                ws.cell(row=row_idx, column=13, value=str(l.id))
+                # 搜索关键字: 合并名称/规格/类别/物料编码
+                search_keyword = " ".join(filter(None, [
+                    l.name or "",
+                    l.specification or "",
+                    l.category or "",
+                    l.material_code or ""
+                ]))
 
-        # Freeze top row
+                ws.cell(row=row_idx, column=1, value=search_keyword)
+                ws.cell(row=row_idx, column=2, value=l.name)
+                ws.cell(row=row_idx, column=3, value=l.specification)
+                ws.cell(row=row_idx, column=4, value=l.category)
+                ws.cell(row=row_idx, column=5, value=l.unit)
+                ws.cell(row=row_idx, column=6, value=float(l.current_stock))
+                ws.cell(row=row_idx, column=7, value=float(l.min_stock))
+                ws.cell(row=row_idx, column=8, value=inbound_count)
+                ws.cell(row=row_idx, column=9, value=float(cumulative_in))
+                ws.cell(row=row_idx, column=10, value=outbound_count)
+                ws.cell(row=row_idx, column=11, value=float(cumulative_out))
+                ws.cell(row=row_idx, column=12, value=float(net_in))
+                ws.cell(row=row_idx, column=13, value=l.material_code or "")
+                ws.cell(row=row_idx, column=14, value=l.purchase_date.isoformat() if l.purchase_date else "")
+                ws.cell(row=row_idx, column=15, value=str(l.id))
+
         ws.freeze_panes = "A2"
 
     def _create_inbound_data_sheet(self, wb: Workbook) -> None:

@@ -7,7 +7,6 @@ from pathlib import Path
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
-from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils.dataframe import dataframe_to_rows
 
 from ledger_system.data.database import get_session
@@ -352,19 +351,31 @@ class ReportGenerator:
 
         wb = load_workbook(str(output_path))
 
+        # Get actual row counts for bounded ranges
+        inbound_count = 0
+        outbound_count = 0
+        if "入库记录" in wb.sheetnames:
+            inbound_count = wb["入库记录"].max_row - 1
+        if "出库记录" in wb.sheetnames:
+            outbound_count = wb["出库记录"].max_row - 1
+
         # Create dashboard sheet at the end first
         ws = wb.create_sheet("材料看板")
-        self._write_dashboard_content(ws)
+        self._write_dashboard_content(ws, inbound_count, outbound_count)
 
         # Move dashboard sheet to the beginning (position 0)
-        # sheets are ordered by their position in wb._sheets list
         dashboard_sheet = wb["材料看板"]
         wb._sheets.insert(0, wb._sheets.pop(wb._sheets.index(dashboard_sheet)))
 
         wb.save(str(output_path))
 
-    def _write_dashboard_content(self, ws) -> None:
+    def _write_dashboard_content(self, ws, inbound_count=0, outbound_count=0) -> None:
         """Write dashboard content to sheet"""
+        # Use bounded ranges instead of whole columns for performance
+        max_rows = max(inbound_count, outbound_count, 1000) + 1
+        row_range = f"$2:$D${max(max_rows, 2)}"
+        inbound_range = f"$2:$D${max(inbound_count + 1, 2)}"
+        outbound_range = f"$2:$D${max(outbound_count + 1, 2)}"
         # Styles
         header_font = Font(bold=True, size=14, color="FFFFFF")
         header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
@@ -437,7 +448,7 @@ class ReportGenerator:
         ws["G7"] = f'=IFERROR(INDEX(台账总览!$L:$L,{match_formula}),"")'  # 采购日期
         ws["C8"] = f'=IFERROR(INDEX(台账总览!$F:$F,{match_formula}),"")'  # 当前库存
         ws["E8"] = f'=IFERROR(INDEX(台账总览!$G:$G,{match_formula}),"")'  # 最小库存
-        ws["G8"] = '=IF($B$3="","",IF(C8>=E8,"✓ 正常","⚠️ 库存不足"))'  # 库存状态
+        ws["G8"] = '=IF(OR($B$3="",C8="",E8=""),"",IF(AND(ISNUMBER(C8),ISNUMBER(E8)),IF(VALUE(C8)>=VALUE(E8),"✓ 正常","⚠️ 库存不足"),"⚠️ 数据异常"))'  # 库存状态 - with type check
         ws["C9"] = f'=IFERROR(INDEX(台账总览!$H:$H,{match_formula}),"")'  # 入库次数
         ws["E9"] = f'=IFERROR(INDEX(台账总览!$I:$I,{match_formula}),"")'  # 入库累计
         ws["C10"] = f'=IFERROR(INDEX(台账总览!$J:$J,{match_formula}),"")'  # 出库次数
@@ -457,22 +468,22 @@ class ReportGenerator:
             cell.border = thin_border
             cell.alignment = Alignment(horizontal="center")
 
-        # 入库记录联动公式 - 搜索物料名称匹配
+        # 入库记录联动公式 - 使用 bounded ranges + LARGE获取最新记录
         # 入库记录列: A=序号,B=日期,C=时间,D=物料名称,E=规格,F=数量,G=单位,H=累计入库,I=供应商
         for row in range(14, 24):
             ws.cell(row=row, column=1, value=f"第{row-13}次").border = thin_border
             for col in range(2, 10):
                 ws.cell(row=row, column=col).border = thin_border
 
-        # 入库记录公式 - 根据搜索词筛选
+        # 入库记录公式 - bounded range + LARGE (newest first) + type check for empty
         # 序号
-        ws["A14"] = '=IFERROR(IF(ROW()-13<=COUNTIF(入库记录!$D:$D,"*"&$B$3&"*"),"第"&ROW()-13&"次",""),"")'
+        ws["A14"] = f'=IFERROR(IF(ROW()-13<=COUNTIF(入库记录!$D$2:$D${max(inbound_count+1,2)},"*"&$B$3&"*"),"第"&ROW()-13&"次",""),"")'
         # 日期
-        ws["B14"] = '=IFERROR(INDEX(入库记录!$B:$B,SMALL(IF(ISNUMBER(SEARCH($B$3,入库记录!$D:$D)),ROW(入库记录!$D:$D)),ROW()-13)),"")'
+        ws["B14"] = f'=IFERROR(INDEX(入库记录!$B$2:$B${max(inbound_count+1,2)},LARGE(IF(ISNUMBER(SEARCH($B$3,入库记录!$D$2:$D${max(inbound_count+1,2)})),ROW(入库记录!$D$2:$D${max(inbound_count+1,2)})-1),ROW()-13)),"")'
         # 数量
-        ws["F14"] = '=IFERROR(INDEX(入库记录!$F:$F,SMALL(IF(ISNUMBER(SEARCH($B$3,入库记录!$D:$D)),ROW(入库记录!$D:$D)),ROW()-13)),"")'
+        ws["F14"] = f'=IFERROR(IF($B$3="","",INDEX(入库记录!$F$2:$F${max(inbound_count+1,2)},LARGE(IF(ISNUMBER(SEARCH($B$3,入库记录!$D$2:$D${max(inbound_count+1,2)})),ROW(入库记录!$D$2:$D${max(inbound_count+1,2)})-1),ROW()-13)))),"")'
         # 供应商
-        ws["I14"] = '=IFERROR(INDEX(入库记录!$I:$I,SMALL(IF(ISNUMBER(SEARCH($B$3,入库记录!$D:$D)),ROW(入库记录!$D:$D)),ROW()-13)),"")'
+        ws["I14"] = f'=IFERROR(IF($B$3="","",INDEX(入库记录!$I$2:$I${max(inbound_count+1,2)},LARGE(IF(ISNUMBER(SEARCH($B$3,入库记录!$D$2:$D${max(inbound_count+1,2)})),ROW(入库记录!$D$2:$D${max(inbound_count+1,2)})-1),ROW()-13)))),"")'
 
         # === Section 3: Outbound History ===
         ws.merge_cells("A26:L26")
@@ -493,11 +504,11 @@ class ReportGenerator:
             for col in range(2, 11):
                 ws.cell(row=row, column=col).border = thin_border
 
-        # 出库记录公式
-        ws["A28"] = '=IFERROR(IF(ROW()-27<=COUNTIF(出库记录!$D:$D,"*"&$B$3&"*"),"第"&ROW()-27&"次",""),"")'
-        ws["B28"] = '=IFERROR(INDEX(出库记录!$B:$B,SMALL(IF(ISNUMBER(SEARCH($B$3,出库记录!$D:$D)),ROW(出库记录!$D:$D)),ROW()-27)),"")'
-        ws["F28"] = '=IFERROR(INDEX(出库记录!$F:$F,SMALL(IF(ISNUMBER(SEARCH($B$3,出库记录!$D:$D)),ROW(出库记录!$D:$D)),ROW()-27)),"")'
-        ws["G28"] = '=IFERROR(INDEX(出库记录!$G:$G,SMALL(IF(ISNUMBER(SEARCH($B$3,出库记录!$D:$D)),ROW(出库记录!$D:$D)),ROW()-27)),"")'
+        # 出库记录公式 - bounded range + LARGE (newest first) + type check
+        ws["A28"] = f'=IFERROR(IF(ROW()-27<=COUNTIF(出库记录!$D$2:$D${max(outbound_count+1,2)},"*"&$B$3&"*"),"第"&ROW()-27&"次",""),"")'
+        ws["B28"] = f'=IFERROR(IF($B$3="","",INDEX(出库记录!$B$2:$B${max(outbound_count+1,2)},LARGE(IF(ISNUMBER(SEARCH($B$3,出库记录!$D$2:$D${max(outbound_count+1,2)})),ROW(出库记录!$D$2:$D${max(outbound_count+1,2)})-1),ROW()-27)))),"")'
+        ws["F28"] = f'=IFERROR(IF($B$3="","",INDEX(出库记录!$F$2:$F${max(outbound_count+1,2)},LARGE(IF(ISNUMBER(SEARCH($B$3,出库记录!$D$2:$D${max(outbound_count+1,2)})),ROW(出库记录!$D$2:$D${max(outbound_count+1,2)})-1),ROW()-27)))),"")'
+        ws["G28"] = f'=IFERROR(IF($B$3="","",INDEX(出库记录!$G$2:$G${max(outbound_count+1,2)},LARGE(IF(ISNUMBER(SEARCH($B$3,出库记录!$D$2:$D${max(outbound_count+1,2)})),ROW(出库记录!$D$2:$D${max(outbound_count+1,2)})-1),ROW()-27)))),"")'
 
         # 导出提示
         ws["A38"] = "导出报表命令:"

@@ -3,7 +3,7 @@ database:
   port: 5432
   name: "ledger_db"
   user: "postgres"
-  password: ""
+  password: "8a356f0b61c14507801c127769293b43"
 
 minimax:
   api_key: "sk-cp-Tb9Viw7IZP432RPTrsO27Upe8FvAmoZjy9Lm2g4JCkgoeC_kWobSTrbV_gT4SyO2xi6veJzoh883fW_SAQHOQqdrd9VA5mbaaQ-XZpj5hRfLJuTmkNQ9OgA"

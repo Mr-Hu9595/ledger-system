@@ -1,5 +1,7 @@
 """MiniMax AI service for entity extraction and document understanding"""
 import json
+import re
+import ast
 from typing import Dict, Any, Optional
 from pathlib import Path
 
@@ -36,7 +38,7 @@ class AIService:
 - date: 日期（格式：YYYY-MM-DD），如果文本中没有则用今天
 - notes: 备注信息
 
-只返回JSON，不要有其他内容。"""
+重要：请只返回原始JSON字符串，不要使用任何markdown格式标记，不要用```json包裹输出，直接返回JSON本身。"""
 
         response = self._call_text_api(prompt)
         return self._parse_json_response(response)
@@ -94,16 +96,29 @@ class AIService:
         return result.get("content", "")
 
     def _parse_json_response(self, response: str) -> Dict[str, Any]:
-        """Parse JSON from AI response"""
+        """Parse JSON from AI response, stripping markdown code blocks with fallback"""
+        if not response:
+            return {}
         try:
-            # Try to extract JSON from response
-            start = response.find("{")
-            end = response.rfind("}") + 1
-            if start != -1 and end != 0:
-                return json.loads(response[start:end])
-            return {}
+            # Strip markdown code block wrappers (```json ... ``` or ``` ... ```)
+            match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response)
+            if match:
+                json_str = match.group(1).strip()
+            else:
+                # Fallback: extract between first { and last }
+                start = response.find("{")
+                end = response.rfind("}") + 1
+                if start != -1 and end != 0:
+                    json_str = response[start:end]
+                else:
+                    json_str = response.strip()
+            return json.loads(json_str)
         except json.JSONDecodeError:
-            return {}
+            # Fallback: try ast.literal_eval for loose JSON
+            try:
+                return json.loads(json_str) if 'json_str' in dir() else ast.literal_eval(response.strip())
+            except Exception:
+                return {}
 
     def parse_document_content(self, content: str, file_type: str) -> Dict[str, Any]:
         """Parse structured information from document content"""
@@ -122,7 +137,7 @@ class AIService:
 - specification: 规格
 - notes: 备注
 
-只返回JSON。"""
+重要：请只返回原始JSON字符串，不要使用任何markdown格式标记，不要用```json包裹输出，直接返回JSON本身。"""
 
         response = self._call_text_api(prompt)
         return self._parse_json_response(response)

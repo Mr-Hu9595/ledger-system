@@ -1,11 +1,22 @@
 """CLI entry point"""
 import sys
+import logging
 import argparse
-from ledger_system.program.commands.add import AddCommand
-from ledger_system.program.commands.query import QueryCommand
-from ledger_system.program.commands.process import ProcessCommand
-from ledger_system.program.commands.export import ExportCommand
-from ledger_system.program.commands.sync import SyncCommand
+from pathlib import Path
+
+# Configure logging
+LOG_DIR = Path(__file__).parent.parent.parent / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_DIR / "ledger.log", encoding="utf-8"),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger("ledger")
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -71,24 +82,28 @@ def main():
         parser.print_help()
         return
 
-    if args.command == "add":
-        cmd = AddCommand()
-        cmd.execute(args)
-    elif args.command == "query":
-        cmd = QueryCommand()
-        cmd.execute(args)
-    elif args.command == "process":
-        cmd = ProcessCommand()
-        cmd.execute(args)
-    elif args.command == "export":
-        cmd = ExportCommand()
-        cmd.execute(args)
-    elif args.command == "sync":
-        cmd = SyncCommand()
-        cmd.execute(args)
-    else:
-        print(f"未知命令: {args.command}")
-        parser.print_help()
+    try:
+        if args.command == "add":
+            cmd = AddCommand()
+            cmd.execute(args)
+        elif args.command == "query":
+            cmd = QueryCommand()
+            cmd.execute(args)
+        elif args.command == "process":
+            cmd = ProcessCommand()
+            cmd.execute(args)
+        elif args.command == "export":
+            cmd = ExportCommand()
+            cmd.execute(args)
+        elif args.command == "sync":
+            cmd = SyncCommand()
+            cmd.execute(args)
+        else:
+            logger.warning(f"未知命令: {args.command}")
+            parser.print_help()
+    except Exception as e:
+        logger.exception(f"命令执行失败: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
