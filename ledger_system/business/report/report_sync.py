@@ -80,6 +80,16 @@ class ReportSync:
                 "单位": item.unit,
                 "当前库存": float(item.current_stock),
                 "最小库存": float(item.min_stock),
+                "驱动形式": item.drive_type or "",
+                "公称直径": item.nominal_diameter or "",
+                "介质": item.medium or "",
+                "设计压力": item.design_pressure or "",
+                "材质": item.material_type or "",
+                "设计温度": item.design_temperature or "",
+                "阀门位置": item.valve_position or "",
+                "厂家": item.manufacturer or "",
+                "采购日期": item.purchase_date or "",
+                "备注": item.notes or "",
                 "状态": "正常" if item.current_stock >= item.min_stock else "库存不足"
             })
 

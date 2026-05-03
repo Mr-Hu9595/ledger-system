@@ -4,6 +4,13 @@ import logging
 import argparse
 from pathlib import Path
 
+from ledger_system.program.commands.add import AddCommand
+from ledger_system.program.commands.query import QueryCommand
+from ledger_system.program.commands.process import ProcessCommand
+from ledger_system.program.commands.export import ExportCommand
+from ledger_system.program.commands.sync import SyncCommand
+from ledger_system.program.commands.import_procurement_command import ImportProcurementCommand
+
 # Configure logging
 LOG_DIR = Path(__file__).parent.parent.parent / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -63,6 +70,10 @@ def create_parser() -> argparse.ArgumentParser:
     # Sync command
     sync_parser = subparsers.add_parser("sync", help="同步报表")
 
+    # Import command
+    import_parser = subparsers.add_parser("import", help="导入采购清单到台账")
+    import_parser.add_argument("file", help="采购清单Excel文件路径")
+
     # Help command
     help_parser = subparsers.add_parser("help", help="显示帮助")
 
@@ -97,6 +108,9 @@ def main():
             cmd.execute(args)
         elif args.command == "sync":
             cmd = SyncCommand()
+            cmd.execute(args)
+        elif args.command == "import":
+            cmd = ImportProcurementCommand()
             cmd.execute(args)
         else:
             logger.warning(f"未知命令: {args.command}")

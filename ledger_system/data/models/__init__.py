@@ -9,6 +9,7 @@ from ledger_system.data.models.rule_learning import RuleLearning
 from ledger_system.data.models.document_log import DocumentLog
 from ledger_system.data.models.material_code import MaterialCode
 from ledger_system.data.models.category import Category
+from ledger_system.data.models.ledger_property import LedgerProperty, PROPERTY_KEYS
 
 __all__ = [
     "Base",
@@ -23,4 +24,6 @@ __all__ = [
     "DocumentLog",
     "MaterialCode",
     "Category",
+    "LedgerProperty",
+    "PROPERTY_KEYS",
 ]
