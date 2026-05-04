@@ -1,5 +1,5 @@
 import { Layout, Menu } from 'antd';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   HomeOutlined,
   InboxOutlined,
@@ -73,7 +73,7 @@ const LayoutComponent = ({ children }) => {
         </Sider>
         <Layout style={{ padding: '0 24px 24px' }}>
           <Content style={{ margin: '16px 0', minHeight: 280 }}>
-            {children}
+            <Outlet />
           </Content>
         </Layout>
       </Layout>

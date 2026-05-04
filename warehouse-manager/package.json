@@ -4,7 +4,7 @@
   "description": "仓库管理系统",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "cd server && uvicorn main:app --reload --port 8000",
+    "server": "cd server && uvicorn main:app --host 127.0.0.1 --port 8000",
     "client": "cd client && npm run dev",
     "build": "npm run build-client && npm run build-electron",
     "build-client": "cd client && npm run build",
@@ -29,5 +29,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     }
+  },
+  "dependencies": {
+    "@playwright/test": "^1.59.1"
   }
 }
