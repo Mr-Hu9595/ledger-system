@@ -11,6 +11,7 @@ from datetime import datetime
 
 from ledger_system.data.database import get_session
 from ledger_system.data.repository import LedgerRepository
+from ledger_system.data.models import Ledger, LedgerProperty
 
 
 class ReportSync:
@@ -60,18 +61,27 @@ class ReportSync:
         with get_session() as session:
             repo = LedgerRepository(session)
 
-            self._sync_inventory(repo)
-            self._sync_inbounds(repo)
-            self._sync_outbounds(repo)
-            self._sync_material_codes(repo)
+            self._sync_inventory(session, repo)
+            self._sync_inbounds(session, repo)
+            self._sync_outbounds(session, repo)
+            self._sync_material_codes(session)
 
         print(f"报表已同步: {self.REPORT_FILE}")
 
-    def _sync_inventory(self, repo: LedgerRepository):
-        """同步台账总览"""
+    def _get_ledger_properties(self, session, ledger_id: str) -> dict:
+        """获取ledger的所有属性"""
+        props = session.query(LedgerProperty).filter(
+            LedgerProperty.ledger_id == ledger_id
+        ).all()
+        return {p.property_key: p.property_value for p in props}
+
+    def _sync_inventory(self, session, repo: LedgerRepository):
+        """同步台账总览 - 从 ledger_property 表读取扩展属性"""
         ledgers = repo.get_all_ledgers()
         data = []
         for item in ledgers:
+            props = self._get_ledger_properties(session, item.id)
+
             data.append({
                 "物料编码": item.material_code or "",
                 "名称": item.name,
@@ -80,14 +90,21 @@ class ReportSync:
                 "单位": item.unit,
                 "当前库存": float(item.current_stock),
                 "最小库存": float(item.min_stock),
-                "驱动形式": item.drive_type or "",
-                "公称直径": item.nominal_diameter or "",
-                "介质": item.medium or "",
-                "设计压力": item.design_pressure or "",
-                "材质": item.material_type or "",
-                "设计温度": item.design_temperature or "",
-                "阀门位置": item.valve_position or "",
-                "厂家": item.manufacturer or "",
+                "入库状态": item.inbound_status or "待入库",
+                "计划入库日期": item.planned_inbound_date or "",
+                "驱动形式": props.get("drive_type", ""),
+                "公称直径": props.get("nominal_diameter", ""),
+                "介质": props.get("medium", ""),
+                "设计压力": props.get("design_pressure", ""),
+                "材质": props.get("material_type", ""),
+                "设计温度": props.get("design_temperature", ""),
+                "阀门位置": props.get("valve_position", ""),
+                "厂家": props.get("manufacturer", ""),
+                "品牌": props.get("brand", ""),
+                "板块": props.get("board", ""),
+                "物资类型": props.get("item_type", ""),
+                "技术参数": props.get("technical_params", ""),
+                "重量": props.get("weight", ""),
                 "采购日期": item.purchase_date or "",
                 "备注": item.notes or "",
                 "状态": "正常" if item.current_stock >= item.min_stock else "库存不足"
@@ -96,7 +113,7 @@ class ReportSync:
         df = pd.DataFrame(data)
         self._write_to_sheet("台账总览", df)
 
-    def _sync_inbounds(self, repo: LedgerRepository):
+    def _sync_inbounds(self, session, repo: LedgerRepository):
         """同步入库记录"""
         inbounds = repo.get_all_inbounds()
         data = []
@@ -117,9 +134,9 @@ class ReportSync:
             })
 
         df = pd.DataFrame(data)
-        self._write_to_sheet("入库记录", df)
+        self._write_to_sheet("入库记录数据", df)
 
-    def _sync_outbounds(self, repo: LedgerRepository):
+    def _sync_outbounds(self, session, repo: LedgerRepository):
         """同步出库记录"""
         outbounds = repo.get_all_outbounds()
         data = []
@@ -140,13 +157,13 @@ class ReportSync:
             })
 
         df = pd.DataFrame(data)
-        self._write_to_sheet("出库记录", df)
+        self._write_to_sheet("出库记录数据", df)
 
-    def _sync_material_codes(self, repo: LedgerRepository):
+    def _sync_material_codes(self, session):
         """同步物料编码"""
         from ledger_system.data.models.material_code import MaterialCode
 
-        codes = repo.session.query(MaterialCode).all()
+        codes = session.query(MaterialCode).all()
         data = []
         for mc in codes:
             data.append({
@@ -167,7 +184,7 @@ class ReportSync:
         self._write_to_sheet("物料编码", df)
 
     def _write_to_sheet(self, sheet_name: str, df: pd.DataFrame):
-        """写入数据到指定sheet"""
+        """写入数据到指定sheet - 保留材料看板不被修改"""
         wb = load_workbook(self.REPORT_FILE)
 
         if sheet_name in wb.sheetnames:

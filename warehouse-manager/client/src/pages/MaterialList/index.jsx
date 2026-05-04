@@ -150,9 +150,9 @@ const MaterialList = () => {
             <Descriptions.Item label="最小库存">{selectedMaterial.min_stock}</Descriptions.Item>
             <Descriptions.Item label="物料编码">{selectedMaterial.material_code}</Descriptions.Item>
             <Descriptions.Item label="入库状态">{selectedMaterial.inbound_status}</Descriptions.Item>
-            <Descriptions.Item label="品牌" span={2}>{selectedMaterial.properties?.find(p => p[0] === 'brand')?.[1] || '-'}</Descriptions.Item>
-            <Descriptions.Item label="材质" span={2}>{selectedMaterial.properties?.find(p => p[0] === 'material_type')?.[1] || '-'}</Descriptions.Item>
-            <Descriptions.Item label="技术参数" span={2}>{selectedMaterial.properties?.find(p => p[0] === 'technical_params')?.[1] || '-'}</Descriptions.Item>
+            <Descriptions.Item label="品牌" span={2}>{selectedMaterial.properties?.find(p => p.key === 'brand')?.value || '-'}</Descriptions.Item>
+            <Descriptions.Item label="材质" span={2}>{selectedMaterial.properties?.find(p => p.key === 'material_type')?.value || '-'}</Descriptions.Item>
+            <Descriptions.Item label="技术参数" span={2}>{selectedMaterial.properties?.find(p => p.key === 'technical_params')?.value || '-'}</Descriptions.Item>
           </Descriptions>
         )}
       </Modal>

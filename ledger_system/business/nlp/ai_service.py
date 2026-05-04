@@ -15,8 +15,8 @@ class AIService:
     def __init__(self):
         self.config = self._load_config()
         self.api_key = self.config["minimax"]["api_key"]
-        self.api_host = self.config["minimax"]["api_host"]
-        self.model = self.config["minimax"].get("model", "MiniMax-Text-01")
+        self.api_host = self.config["minimax"].get("api_host", "api.minimaxi.com")
+        self.model = "MiniMax-M2.7"
 
     def _load_config(self) -> dict:
         """Load config from settings.yaml"""
@@ -57,11 +57,12 @@ class AIService:
         return self._call_vision_api(image_path, prompt)
 
     def _call_text_api(self, prompt: str) -> str:
-        """Call MiniMax text API"""
-        url = f"https://{self.api_host}/v1/text/chatcompletion_v2"
+        """Call MiniMax text API - Claude Code compatible format"""
+        url = f"https://{self.api_host}/anthropic/v1/messages"
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
+            "x-api-key": self.api_key,
             "Content-Type": "application/json"
         }
 
@@ -69,21 +70,28 @@ class AIService:
             "model": self.model,
             "messages": [
                 {"role": "user", "content": prompt}
-            ]
+            ],
+            "max_tokens": 4096
         }
 
-        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        response = requests.post(url, headers=headers, json=payload, timeout=120)
         response.raise_for_status()
 
         result = response.json()
-        return result["choices"][0]["messages"][0]["text"]
+        # Extract content from the response - get the 'text' type content, not 'thinking'
+        if "content" in result and len(result["content"]) > 0:
+            for item in result["content"]:
+                if item.get("type") == "text":
+                    return item.get("text", "")
+        return ""
 
     def _call_vision_api(self, image_path: str, prompt: str) -> str:
         """Call MiniMax vision API for image understanding"""
         url = f"https://{self.api_host}/v1/image understanding"
 
         headers = {
-            "Authorization": f"Bearer {self.api_key}"
+            "Authorization": f"Bearer {self.api_key}",
+            "x-api-key": self.api_key
         }
 
         with open(image_path, "rb") as f:
@@ -141,3 +149,59 @@ class AIService:
 
         response = self._call_text_api(prompt)
         return self._parse_json_response(response)
+
+    def analyze_procurement_row(self, row_data: Dict[str, Any]) -> Dict[str, str]:
+        """
+        Analyze procurement row data and extract structured fields using AI.
+        """
+        # Format row data for AI analysis
+        row_text = self._format_row_data(row_data)
+
+        prompt = f"""你是一个建筑工地材料采购清单分析助手。请分析以下采购清单数据，提取每个维度的值。
+
+数据行:
+{row_text}
+
+请根据数据内容，提取以下维度的值（只返回有值的维度）：
+
+返回格式要求（严格返回JSON，不要有任何其他内容）：
+{{
+  "specification": "规格型号",
+  "material_type": "材质",
+  "standard": "执行标准",
+  "thickness": "厚度",
+  "connection_type": "连接方式",
+  "pressure": "压力",
+  "temperature": "温度",
+  "medium": "介质",
+  "drive_type": "驱动形式",
+  "nominal_diameter": "公称直径",
+  "brand": "品牌",
+  "weight": "单个重量",
+  "board": "板块",
+  "item_type": "物资类型",
+  "manufacturer": "厂家",
+  "technical_params": "完整技术参数原文",
+  "technical_requirements": "技术要求原文",
+  "notes": "备注信息"
+}}
+
+重要规则：
+1. 只返回JSON格式，不要用```包裹，不要有任何其他内容
+2. 对于阀门'公称直径'列如包含"Q47F-10-DN150；304不锈钢；法兰"，则：specification=Q47F-10-DN150, material_type=304不锈钢, connection_type=法兰
+3. 只返回有值的维度
+4. 技术参数和技术要求要保留原文"""
+
+        response = self._call_text_api(prompt)
+        return self._parse_json_response(response)
+
+    def _format_row_data(self, row_data: Dict[str, Any]) -> str:
+        """Format row data as text for AI analysis"""
+        lines = []
+        for key, value in row_data.items():
+            if value is not None and str(value).strip():
+                val_str = str(value).replace('\n', ' ').replace('\r', ' ')
+                if len(val_str) > 200:
+                    val_str = val_str[:200] + "..."
+                lines.append(f"  {key}: {val_str}")
+        return '\n'.join(lines)

@@ -27,7 +27,7 @@ def build_material_response(material):
         "planned_inbound_date": material.planned_inbound_date,
         "purchase_date": material.purchase_date,
         "notes": material.notes,
-        "properties": list(props.items())
+        "properties": [{"key": k, "value": v} for k, v in props.items()]
     }
 
 @router.get("", response_model=List[MaterialResponse])
