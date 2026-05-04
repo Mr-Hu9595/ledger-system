@@ -1,0 +1,15 @@
+{
+  "name": "warehouse-manager",
+  "version": "1.0.0",
+  "description": "仓库管理系统",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && uvicorn main:app --reload --port 8000",
+    "client": "cd client && npm run dev",
+    "electron": "cd electron && electron .",
+    "build": "npm run build-client && npm run build-electron"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
