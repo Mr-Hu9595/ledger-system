@@ -6,10 +6,28 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd server && uvicorn main:app --reload --port 8000",
     "client": "cd client && npm run dev",
-    "electron": "cd electron && electron .",
-    "build": "npm run build-client && npm run build-electron"
+    "build": "npm run build-client && npm run build-electron",
+    "build-client": "cd client && npm run build",
+    "build-electron": "cd electron && electron-builder --win",
+    "electron": "electron ."
   },
   "devDependencies": {
-    "concurrently": "^8.2.0"
+    "concurrently": "^8.2.0",
+    "electron-builder": "^24.9.0"
+  },
+  "build": {
+    "appId": "com.warehouse.manager",
+    "productName": "仓库管理系统",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }
