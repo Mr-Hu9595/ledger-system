@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Form, Input, Select, InputNumber, Button, Card, message, Row, Col, Divider, Tag, Space } from 'antd';
 import { materialAPI, encodingAPI } from '../../services/api';
+import AIPanel from '../../components/AIPanel';
 import { useNavigate } from 'react-router-dom';
 import { RobotOutlined, ThunderboltOutlined, SyncOutlined } from '@ant-design/icons';
 
@@ -30,6 +31,23 @@ const MaterialCreate = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // AI识别后填充表单
+  const handleAIFill = (data) => {
+    const formData = {};
+    if (data.name) formData.name = data.name;
+    if (data.specification) formData.specification = data.specification;
+    if (data.category) formData.category = data.category;
+    if (data.unit) formData.unit = data.unit;
+    if (data.brand) formData.brand = data.brand;
+    if (data.nominal_diameter) formData.nominal_diameter = data.nominal_diameter;
+    if (data.pressure) formData.pressure = data.pressure;
+    if (data.min_stock) formData.min_stock = parseFloat(data.min_stock);
+    if (data.notes) formData.notes = data.notes;
+
+    form.setFieldsValue(formData);
+    message.success('AI识别结果已填充到表单');
   };
 
   // 自动生成物料编码
@@ -117,128 +135,6 @@ const MaterialCreate = () => {
       message.error('匹配编码失败，请重试');
     } finally {
       setCodeGenerating(false);
-    }
-  };
-
-  // 智能提取文本中的关键信息
-  const extractFromText = () => {
-    if (!rawText.trim()) {
-      message.warning('请输入要解析的文本');
-      return;
-    }
-
-    const text = rawText.trim();
-    const extracted = {};
-
-    // 提取名称（第一个字符到第一个数量词或特殊字符）
-    const namePatterns = [
-      /名称[：:]\s*(.+?)(?=\s*[规数品材供]|$)/i,
-      /品名[：:]\s*(.+?)(?=\s*[规数供]|$)/i,
-      /(.+?)(?=\s*[规数材供]|$)/,
-    ];
-    for (const pattern of namePatterns) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        extracted.name = match[1].trim();
-        break;
-      }
-    }
-
-    // 提取规格
-    const specPatterns = [
-      /规格[：:]\s*(.+?)(?=\s*[数材供]|型号|$)/i,
-      /规格型号[：:]\s*(.+?)(?=\s*[数材供]|$)/i,
-      /型号[：:]\s*(.+?)(?=\s*[数材供]|$)/i,
-    ];
-    for (const pattern of specPatterns) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        extracted.specification = match[1].trim();
-        break;
-      }
-    }
-
-    // 提取数量
-    const qtyPatterns = [
-      /数量[：:]\s*(\d+(?:\.\d+)?)\s*(?:个|套|米|吨|项|批)?/i,
-      /(\d+(?:\.\d+)?)\s*(?:个|套|米|吨|项|批)/,
-    ];
-    for (const pattern of qtyPatterns) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        extracted.quantity = parseFloat(match[1]);
-        // 提取单位
-        const unitMatch = text.match(/(?:个|套|米|吨|项|批)/);
-        if (unitMatch) {
-          extracted.unit = unitMatch[0];
-        }
-        break;
-      }
-    }
-
-    // 提取品牌
-    const brandPatterns = [
-      /品牌[：:]\s*(.+?)(?=\s*[材供]|$)/i,
-      /厂家[：:]\s*(.+?)(?=\s*[材供]|$)/i,
-    ];
-    for (const pattern of brandPatterns) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        extracted.brand = match[1].trim();
-        break;
-      }
-    }
-
-    // 提取材质
-    const materialPatterns = [
-      /材质[：:]\s*(.+?)(?=\s*[供]|$)/i,
-    ];
-    for (const pattern of materialPatterns) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        extracted.material_type = match[1].trim();
-        break;
-      }
-    }
-
-    // 提取公称直径
-    const diameterPatterns = [
-      /DN(\d+)/i,
-      /直径[：:]\s*DN?(\d+)/i,
-    ];
-    for (const pattern of diameterPatterns) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        extracted.nominal_diameter = 'DN' + match[1];
-        break;
-      }
-    }
-
-    // 提取压力
-    const pressurePatterns = [
-      /压力[：:]\s*(\d+(?:\.\d+)?)\s*(?:MPa|帕)?/i,
-      /(\d+(?:\.\d+)?)\s*MPa/i,
-    ];
-    for (const pattern of pressurePatterns) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        extracted.pressure = match[1] + 'MPa';
-        break;
-      }
-    }
-
-    // 如果没提取到名称，尝试直接取整段文字作为名称
-    if (!extracted.name && text.length < 100) {
-      extracted.name = text;
-    }
-
-    // 更新表单
-    if (Object.keys(extracted).length > 0) {
-      form.setFieldsValue(extracted);
-      const keys = Object.keys(extracted).join('、');
-      message.success(`已提取: ${keys}`);
-    } else {
-      message.warning('未能识别关键信息，请手动填写');
     }
   };
 
@@ -347,75 +243,11 @@ const MaterialCreate = () => {
       </Col>
 
       <Col span={10}>
-        <Card
-          title={<><RobotOutlined style={{ color: '#52c41a' }} /> AI智能解析</>}
-          style={{ borderRadius: 12, height: '100%' }}
-          styles={{ header: { background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)', color: '#fff' } }}
-        >
-          <div style={{ marginBottom: 16 }}>
-            <p style={{ color: '#666', fontSize: 13 }}>
-              输入物料描述文本，AI将自动提取关键信息。例如：
-            </p>
-            <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 8, fontSize: 12, color: '#888' }}>
-              <div>名称：球阀-1</div>
-              <div>规格：Q47F-10-DN150</div>
-              <div>品牌：杭州阀门厂</div>
-              <div>数量：10个</div>
-            </div>
-          </div>
-
-          <TextArea
-            rows={6}
-            placeholder="粘贴物料描述文本，系统将自动提取：名称、规格、数量、单位、品牌等信息..."
-            value={rawText}
-            onChange={(e) => setRawText(e.target.value)}
-            style={{ marginBottom: 16 }}
-          />
-
-          <Button
-            type="primary"
-            icon={<RobotOutlined />}
-            onClick={extractFromText}
-            block
-            size="large"
-            style={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              border: 'none',
-              borderRadius: 8,
-              height: 48
-            }}
-          >
-            智能提取信息
-          </Button>
-
-          <Button
-            type="default"
-            icon={<SyncOutlined spin={codeGenerating} />}
-            onClick={handleSmartMatchCode}
-            loading={codeGenerating}
-            block
-            size="large"
-            style={{
-              marginTop: 12,
-              borderRadius: 8,
-              height: 48
-            }}
-          >
-            智能匹配编码
-          </Button>
-
-          <Divider style={{ margin: '20px 0 16px' }}>
-            <Tag color="blue">支持的提取字段</Tag>
-          </Divider>
-
-          <Row gutter={[8, 8]}>
-            {['名称', '规格', '数量', '单位', '品牌', '材质', '公称直径', '压力'].map(field => (
-              <Col key={field}>
-                <Tag color="cyan" style={{ borderRadius: 12 }}>{field}</Tag>
-              </Col>
-            ))}
-          </Row>
-        </Card>
+        <AIPanel
+          mode="material"
+          fillOnly={true}
+          onFill={handleAIFill}
+        />
       </Col>
     </Row>
   );

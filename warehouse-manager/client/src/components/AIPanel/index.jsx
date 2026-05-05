@@ -45,7 +45,7 @@ const MODE_API = {
   material: (data) => import('../../services/api').then(m => m.materialAPI.create(data))
 };
 
-const AIPanel = ({ mode = 'material', onSuccess }) => {
+const AIPanel = ({ mode = 'material', onSuccess, fillOnly = false, onFill }) => {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -67,7 +67,16 @@ const AIPanel = ({ mode = 'material', onSuccess }) => {
       const data = res.data.data || {};
       setResult(data);
       setEditableResult(data);
-      message.success('识别完成，请确认信息');
+
+      if (fillOnly && onFill) {
+        onFill(data);
+        message.success('已识别并填充表单');
+        setResult(null);
+        setEditableResult({});
+        setText('');
+      } else {
+        message.success('识别完成，请确认信息');
+      }
     } catch (error) {
       message.error('识别失败: ' + (error.response?.data?.detail || error.message));
     } finally {
@@ -83,7 +92,15 @@ const AIPanel = ({ mode = 'material', onSuccess }) => {
       const data = res.data.data || {};
       setResult(data);
       setEditableResult(data);
-      message.success('文件识别完成，请确认信息');
+
+      if (fillOnly && onFill) {
+        onFill(data);
+        message.success('文件识别并填充表单');
+        setResult(null);
+        setEditableResult({});
+      } else {
+        message.success('文件识别完成，请确认信息');
+      }
     } catch (error) {
       message.error('文件识别失败: ' + (error.response?.data?.detail || error.message));
     } finally {
@@ -176,39 +193,43 @@ const AIPanel = ({ mode = 'material', onSuccess }) => {
         {result && !loading && (
           <div className="ai-panel-result">
             <Alert
-              message="识别结果 - 请确认以下信息"
+              message={fillOnly ? "识别结果已填充到左侧表单" : "识别结果 - 请确认以下信息"}
               type="info"
               showIcon
-              closable
+              closable={!fillOnly}
               onClose={handleClear}
             />
-            <div className="ai-panel-fields">
-              {fields.map(field => (
-                <div key={field.key} className="ai-panel-field">
-                  <label>
-                    {field.label}
-                    {field.required && <span className="required">*</span>}
-                  </label>
-                  <Input
-                    value={editableResult[field.key] || ''}
-                    onChange={e => handleFieldChange(field.key, e.target.value)}
-                    placeholder={`请输入${field.label}`}
-                  />
+            {!fillOnly && (
+              <>
+                <div className="ai-panel-fields">
+                  {fields.map(field => (
+                    <div key={field.key} className="ai-panel-field">
+                      <label>
+                        {field.label}
+                        {field.required && <span className="required">*</span>}
+                      </label>
+                      <Input
+                        value={editableResult[field.key] || ''}
+                        onChange={e => handleFieldChange(field.key, e.target.value)}
+                        placeholder={`请输入${field.label}`}
+                      />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div className="ai-panel-submit">
-              <Button
-                type="primary"
-                onClick={handleSubmit}
-                loading={submitting}
-              >
-                确认提交
-              </Button>
-              <Button onClick={handleClear}>
-                清空
-              </Button>
-            </div>
+                <div className="ai-panel-submit">
+                  <Button
+                    type="primary"
+                    onClick={handleSubmit}
+                    loading={submitting}
+                  >
+                    确认提交
+                  </Button>
+                  <Button onClick={handleClear}>
+                    清空
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </Space>
