@@ -41,36 +41,12 @@ async def recognize(
 
             file_content = await file.read()
 
-            # 图片文件 -> 使用MiniMax vision API (修复URL格式)
+            # 图片文件 -> MiniMax暂不支持直接图片理解，返回提示
             if filename.endswith(('.jpg', '.jpeg', '.png', '.webp')):
-                import requests
-                config_path = Path(__file__).parent.parent.parent.parent / "ledger_system" / "config" / "settings.yaml"
-                import yaml
-                with open(config_path, 'r') as f:
-                    config = yaml.safe_load(f)
-                api_key = config["minimax"]["api_key"]
-                api_host = config["minimax"].get("api_host", "api.minimaxi.com")
-
-                # 正确的MiniMax图片理解API URL
-                url = f"https://{api_host}/v1/image_understanding"
-                b64_image = base64.b64encode(file_content).decode('utf-8')
-
-                headers = {
-                    "Authorization": f"Bearer {api_key}",
-                    "x-api-key": api_key
-                }
-                data = {
-                    "prompt": "请描述这张图片中的所有文字内容和关键信息，包括：材料名称、规格、数量、单位、供应商、日期等建筑工地相关单据信息。"
-                }
-                files = {"file": (filename, io.BytesIO(file_content), f"image/{filename.split('.')[-1]}")}
-
-                response = requests.post(url, headers=headers, data=data, files=files, timeout=120)
-                if response.status_code != 200:
-                    raise HTTPException(status_code=500, detail=f"MiniMax API error: {response.text}")
-                resp_json = response.json()
-                content = resp_json.get("content", "")
-                if not content:
-                    content = resp_json.get("text", str(resp_json))
+                raise HTTPException(
+                    status_code=400,
+                    detail="MiniMax暂不支持图片直接识别。请上传Word、Excel或PDF文档，或使用文本描述。"
+                )
 
             # Word/Excel/PDF -> 提取文本
             elif filename.endswith('.docx'):
