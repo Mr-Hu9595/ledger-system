@@ -46,11 +46,15 @@ class Inbound(Base):
     inbound_date = Column(Date, nullable=False)
     inbound_time = Column(DateTime, default=datetime.utcnow)
     quantity = Column(Float, nullable=False)
+    inbound_sequence = Column(Integer, nullable=False, default=0)  # 第N次入库
+    cumulative_in = Column(Float, nullable=False, default=0)  # 累计入库量
     supplier = Column(String(200))
     inbound_operator = Column(String(100))
     original_document_path = Column(String(500))
     document_source = Column(String(100))
     notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     ledger = relationship("Material", back_populates="inbounds")
 
@@ -62,11 +66,15 @@ class Outbound(Base):
     outbound_date = Column(Date, nullable=False)
     outbound_time = Column(DateTime, default=datetime.utcnow)
     quantity = Column(Float, nullable=False)
+    outbound_sequence = Column(Integer, nullable=False, default=0)  # 第N次出库
+    cumulative_out = Column(Float, nullable=False, default=0)  # 累计出库量
     usage = Column(String(200))
     receiver = Column(String(100))
     outbound_operator = Column(String(100))
     original_document_path = Column(String(500))
     notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     ledger = relationship("Material", back_populates="outbounds")
 
