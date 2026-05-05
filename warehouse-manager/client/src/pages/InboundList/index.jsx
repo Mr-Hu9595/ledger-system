@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Table, Card, Tag, Typography } from 'antd';
 import { inboundAPI } from '../../services/api';
+import AIPanel from '../../components/AIPanel';
 
 const { Title } = Typography;
 
@@ -40,6 +41,7 @@ const InboundList = () => {
   return (
     <div>
       <Title level={3}>入库记录</Title>
+      <AIPanel mode="inbound" onSuccess={fetchInbounds} />
       <Card>
         <Table
           columns={columns}
