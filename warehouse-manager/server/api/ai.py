@@ -20,8 +20,9 @@ async def recognize(
 
     # 导入AIService (从ledger_system复用)
     import sys
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "ledger_system"))
-    from business.nlp.ai_service import AIService
+    # 需要添加台账目录，而不是ledger_system目录
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+    from ledger_system.business.nlp.ai_service import AIService
 
     ai_service = AIService()
 
