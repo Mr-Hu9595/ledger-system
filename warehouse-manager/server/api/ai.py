@@ -71,8 +71,19 @@ async def recognize(
                 content = '\n'.join(content_parts)
 
             elif filename.endswith('.pdf'):
-                # 简单PDF文本提取
-                content = "PDF内容提取需要额外库支持，请使用图片或Word格式"
+                try:
+                    import pdfplumber
+                    with pdfplumber.open(io.BytesIO(file_content)) as pdf:
+                        content_parts = []
+                        for page in pdf.pages:
+                            text = page.extract_text()
+                            if text:
+                                content_parts.append(text)
+                        content = '\n'.join(content_parts)
+                except ImportError:
+                    content = "PDF提取需要安装pdfplumber库，请使用图片或Word格式"
+                except Exception as e:
+                    content = f"PDF提取失败: {str(e)}，请使用图片或Word格式"
 
         else:
             raise HTTPException(status_code=400, detail="请提供text或file参数")
