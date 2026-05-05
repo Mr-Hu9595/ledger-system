@@ -40,8 +40,40 @@ const MODE_FIELDS = {
 
 // 根据mode定义提交API
 const MODE_API = {
-  inbound: (data) => import('../../services/api').then(m => m.inboundAPI.create(data)),
-  outbound: (data) => import('../../services/api').then(m => m.outboundAPI.create(data)),
+  inbound: async (data, materials) => {
+    // AI返回的是ledger_name，需要先查找对应的ledger_id
+    const { materialAPI, inboundAPI } = await import('../../services/api');
+    if (data.ledger_name) {
+      // 查找匹配的物料
+      const materialList = materials || (await materialAPI.getList({ limit: 1000 })).data;
+      const matched = materialList.find(m =>
+        m.name.includes(data.ledger_name) || data.ledger_name.includes(m.name)
+      );
+      if (matched) {
+        return inboundAPI.create({ ...data, ledger_id: matched.id });
+      } else {
+        throw new Error(`未找到物料: ${data.ledger_name}，请先在物料管理中添加`);
+      }
+    }
+    throw new Error('缺少物料名称');
+  },
+  outbound: async (data, materials) => {
+    // AI返回的是ledger_name，需要先查找对应的ledger_id
+    const { materialAPI, outboundAPI } = await import('../../services/api');
+    if (data.ledger_name) {
+      // 查找匹配的物料
+      const materialList = materials || (await materialAPI.getList({ limit: 1000 })).data;
+      const matched = materialList.find(m =>
+        m.name.includes(data.ledger_name) || data.ledger_name.includes(m.name)
+      );
+      if (matched) {
+        return outboundAPI.create({ ...data, ledger_id: matched.id });
+      } else {
+        throw new Error(`未找到物料: ${data.ledger_name}，请先在物料管理中添加`);
+      }
+    }
+    throw new Error('缺少物料名称');
+  },
   material: (data) => import('../../services/api').then(m => m.materialAPI.create(data))
 };
 
@@ -119,7 +151,14 @@ const AIPanel = ({ mode = 'material', onSuccess, fillOnly = false, onFill }) => 
     setSubmitting(true);
     try {
       const apiFn = await MODE_API[mode];
-      await apiFn(editableResult);
+      // inbound和outbound需要先获取物料列表来匹配名称
+      let materials = null;
+      if (mode === 'inbound' || mode === 'outbound') {
+        const { materialAPI } = await import('../../services/api');
+        const res = await materialAPI.getList({ limit: 1000 });
+        materials = res.data;
+      }
+      await apiFn(editableResult, materials);
       message.success('提交成功');
       setResult(null);
       setEditableResult({});
