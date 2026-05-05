@@ -64,4 +64,16 @@ export const aiAPI = {
   }
 };
 
+// 编码库API
+export const encodingAPI = {
+  getCategories: () => api.get('/encoding/categories'),
+  getRules: (params) => api.get('/encoding/rules', { params }),
+  getRule: (id) => api.get(`/encoding/rules/${id}`),
+  createRule: (data) => api.post('/encoding/rules', data),
+  updateRule: (id, data) => api.put(`/encoding/rules/${id}`, data),
+  deleteRule: (id) => api.delete(`/encoding/rules/${id}`),
+  generateCode: (data) => api.post('/encoding/generate', data),
+  matchKeyword: (keyword) => api.get(`/encoding/match/${keyword}`)
+};
+
 export default api;

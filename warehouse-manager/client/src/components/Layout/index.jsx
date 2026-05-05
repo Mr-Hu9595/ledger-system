@@ -5,7 +5,8 @@ import {
   InboxOutlined,
   UploadOutlined,
   FileTextOutlined,
-  ToolOutlined
+  ToolOutlined,
+  FolderOutlined
 } from '@ant-design/icons';
 
 const { Header, Sider, Content } = Layout;
@@ -46,7 +47,9 @@ const LayoutComponent = ({ children }) => {
       icon: <ToolOutlined />,
       label: '工具',
       children: [
-        { key: '/tools', label: '导出/同步' }
+        { key: '/tools', label: '导出/同步' },
+        { key: '/encoding', label: '编码库' },
+        { key: '/encoding/maintain', label: '编码库维护' }
       ]
     }
   ];

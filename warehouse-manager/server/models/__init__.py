@@ -69,3 +69,5 @@ class Outbound(Base):
     notes = Column(Text)
 
     ledger = relationship("Material", back_populates="outbounds")
+
+from models.encoding import EncodingRule, MaterialCodeSequence

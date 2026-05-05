@@ -6,6 +6,8 @@ import MaterialCreate from './pages/MaterialCreate';
 import InboundList from './pages/InboundList';
 import OutboundList from './pages/OutboundList';
 import Tools from './pages/Tools';
+import EncodingList from './pages/EncodingList';
+import EncodingMaintain from './pages/EncodingMaintain';
 
 const router = createBrowserRouter([
   {
@@ -17,7 +19,9 @@ const router = createBrowserRouter([
       { path: 'materials/create', element: <MaterialCreate /> },
       { path: 'inbounds', element: <InboundList /> },
       { path: 'outbounds', element: <OutboundList /> },
-      { path: 'tools', element: <Tools /> }
+      { path: 'tools', element: <Tools /> },
+      { path: 'encoding', element: <EncodingList /> },
+      { path: 'encoding/maintain', element: <EncodingMaintain /> }
     ]
   }
 ]);

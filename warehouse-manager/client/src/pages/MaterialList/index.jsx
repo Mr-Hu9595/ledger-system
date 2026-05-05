@@ -1,12 +1,11 @@
 // warehouse-manager/client/src/pages/MaterialList/index.jsx
 import { useState, useEffect } from 'react';
-import { Table, Input, Select, Button, Space, Modal, Descriptions, Tag } from 'antd';
+import { Table, Input, Select, Button, Space, Modal, Descriptions, Tag, Form, message } from 'antd';
 import { SearchOutlined, PlusOutlined, EyeOutlined, UploadOutlined } from '@ant-design/icons';
 import { materialAPI, inboundAPI } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 
 const { Search } = Input;
-const { Option } = Select;
 
 const MaterialList = () => {
   const [materials, setMaterials] = useState([]);
@@ -18,6 +17,29 @@ const MaterialList = () => {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [inboundModalVisible, setInboundModalVisible] = useState(false);
   const [inboundQuantity, setInboundQuantity] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingForm] = Form.useForm();
+  const [categoryOptions, setCategoryOptions] = useState([
+    { value: 'equipment', label: '设备' },
+    { value: 'material', label: '材料' },
+    { value: '监测仪表', label: '监测仪表' },
+    { value: '视频监控', label: '视频监控' },
+    { value: '雾炮设备', label: '雾炮设备' },
+    { value: '洗车机设备', label: '洗车机设备' }
+  ]);
+  const [unitOptions, setUnitOptions] = useState([
+    { value: '个', label: '个' },
+    { value: '套', label: '套' },
+    { value: '米', label: '米' },
+    { value: '吨', label: '吨' },
+    { value: '项', label: '项' },
+    { value: '批', label: '批' }
+  ]);
+  const [specificationOptions, setSpecificationOptions] = useState([]);
+  const [brandOptions, setBrandOptions] = useState([]);
+  const [materialTypeOptions, setMaterialTypeOptions] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -34,11 +56,66 @@ const MaterialList = () => {
 
       const res = await materialAPI.getList(params);
       setMaterials(res.data);
+
+      // 提取规格、品牌、材质的备选值
+      const specs = [...new Set(res.data.map(m => m.specification).filter(Boolean))];
+      const brands = [...new Set(res.data.map(m => m.properties?.find(p => p.key === 'brand')?.value).filter(Boolean))];
+      const materialTypes = [...new Set(res.data.map(m => m.properties?.find(p => p.key === 'material_type')?.value).filter(Boolean))];
+
+      setSpecificationOptions(specs.map(s => ({ value: s, label: s })));
+      setBrandOptions(brands.map(b => ({ value: b, label: b })));
+      setMaterialTypeOptions(materialTypes.map(m => ({ value: m, label: m })));
     } catch (error) {
       console.error('获取物料失败:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEdit = () => {
+    editingForm.setFieldsValue({
+      name: selectedMaterial.name,
+      specification: selectedMaterial.specification,
+      category: selectedMaterial.category,
+      unit: selectedMaterial.unit,
+      brand: selectedMaterial.properties?.find(p => p.key === 'brand')?.value || '',
+      material_type: selectedMaterial.properties?.find(p => p.key === 'material_type')?.value || '',
+      technical_params: selectedMaterial.properties?.find(p => p.key === 'technical_params')?.value || '',
+    });
+    setIsEditing(true);
+  };
+
+  const handleSave = async () => {
+    try {
+      const values = await editingForm.validateFields();
+      const properties = [];
+      if (values.brand) properties.push({ key: 'brand', value: values.brand });
+      if (values.material_type) properties.push({ key: 'material_type', value: values.material_type });
+      if (values.technical_params) properties.push({ key: 'technical_params', value: values.technical_params });
+
+      await materialAPI.update(selectedMaterial.id, {
+        name: values.name,
+        specification: values.specification,
+        category: values.category,
+        unit: values.unit,
+        properties: properties,
+      });
+      message.success('更新成功');
+      setIsEditing(false);
+      fetchMaterials();
+      setDetailModalVisible(false);
+    } catch (error) {
+      message.error('更新失败');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+
+  const handleCloseModal = () => {
+    setIsEditing(false);
+    setDetailModalVisible(false);
   };
 
   const handleSearch = (value) => {
@@ -127,33 +204,158 @@ const MaterialList = () => {
         rowKey="id"
         loading={loading}
         scroll={{ x: 1200 }}
-        pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `共 ${total} 条` }}
+        pagination={{
+          current: currentPage,
+          pageSize: pageSize,
+          total: materials.length,
+          pageSizeOptions: ['10', '20', '50', '100'],
+          showSizeChanger: true,
+          showTotal: (total) => `共 ${total} 条`,
+          onChange: (page, size) => {
+            setCurrentPage(page);
+            setPageSize(size);
+          }
+        }}
       />
 
       {/* 详情弹窗 */}
       <Modal
         title="物料详情"
         open={detailModalVisible}
-        onCancel={() => setDetailModalVisible(false)}
+        onCancel={handleCloseModal}
         footer={[
-          <Button key="close" onClick={() => setDetailModalVisible(false)}>关闭</Button>,
-          <Button key="inbound" type="primary" onClick={() => { setDetailModalVisible(false); setInboundModalVisible(true); }}>入库</Button>
+          isEditing ? (
+            <Space key="edit-actions">
+              <Button onClick={handleCancelEdit}>取消编辑</Button>
+              <Button type="primary" onClick={handleSave}>保存</Button>
+            </Space>
+          ) : (
+            <Space key="view-actions">
+              <Button onClick={handleCloseModal}>关闭</Button>
+              <Button type="primary" onClick={handleEdit}>编辑</Button>
+            </Space>
+          )
         ]}
       >
         {selectedMaterial && (
-          <Descriptions bordered column={2}>
-            <Descriptions.Item label="名称">{selectedMaterial.name}</Descriptions.Item>
-            <Descriptions.Item label="规格">{selectedMaterial.specification}</Descriptions.Item>
-            <Descriptions.Item label="类别">{selectedMaterial.category}</Descriptions.Item>
-            <Descriptions.Item label="单位">{selectedMaterial.unit}</Descriptions.Item>
-            <Descriptions.Item label="当前库存">{selectedMaterial.current_stock}</Descriptions.Item>
-            <Descriptions.Item label="最小库存">{selectedMaterial.min_stock}</Descriptions.Item>
-            <Descriptions.Item label="物料编码">{selectedMaterial.material_code}</Descriptions.Item>
-            <Descriptions.Item label="入库状态">{selectedMaterial.inbound_status}</Descriptions.Item>
-            <Descriptions.Item label="品牌" span={2}>{selectedMaterial.properties?.find(p => p.key === 'brand')?.value || '-'}</Descriptions.Item>
-            <Descriptions.Item label="材质" span={2}>{selectedMaterial.properties?.find(p => p.key === 'material_type')?.value || '-'}</Descriptions.Item>
-            <Descriptions.Item label="技术参数" span={2}>{selectedMaterial.properties?.find(p => p.key === 'technical_params')?.value || '-'}</Descriptions.Item>
-          </Descriptions>
+          <Form form={editingForm} layout="vertical">
+            <Form.Item label="名称" name="name">
+              {isEditing ? <Input /> : <span>{selectedMaterial.name}</span>}
+            </Form.Item>
+            <Form.Item label="规格" name="specification">
+              {isEditing ? (
+                <Select
+                  showSearch
+                  allowClear
+                  placeholder="选择或输入规格"
+                  options={specificationOptions}
+                  onSearch={(value) => {
+                    if (value && !specificationOptions.some(o => o.value === value)) {
+                      setSpecificationOptions([...specificationOptions, { value, label: value }]);
+                    }
+                  }}
+                  filterOption={(input, option) =>
+                    option.label.toLowerCase().includes(input.toLowerCase())
+                  }
+                />
+              ) : (
+                <span>{selectedMaterial.specification}</span>
+              )}
+            </Form.Item>
+            <Form.Item label="类别" name="category">
+              {isEditing ? (
+                <Select
+                  showSearch
+                  allowClear
+                  placeholder="选择或输入类别"
+                  options={categoryOptions}
+                  onSearch={(value) => {
+                    if (value && !categoryOptions.some(o => o.value === value)) {
+                      setCategoryOptions([...categoryOptions, { value, label: value }]);
+                    }
+                  }}
+                  filterOption={(input, option) =>
+                    option.label.toLowerCase().includes(input.toLowerCase())
+                  }
+                />
+              ) : (
+                <span>{selectedMaterial.category}</span>
+              )}
+            </Form.Item>
+            <Form.Item label="单位" name="unit">
+              {isEditing ? (
+                <Select
+                  showSearch
+                  allowClear
+                  placeholder="选择或输入单位"
+                  options={unitOptions}
+                  onSearch={(value) => {
+                    if (value && !unitOptions.some(o => o.value === value)) {
+                      setUnitOptions([...unitOptions, { value, label: value }]);
+                    }
+                  }}
+                  filterOption={(input, option) =>
+                    option.label.toLowerCase().includes(input.toLowerCase())
+                  }
+                />
+              ) : (
+                <span>{selectedMaterial.unit}</span>
+              )}
+            </Form.Item>
+            <Form.Item label="品牌" name="brand">
+              {isEditing ? (
+                <Select
+                  showSearch
+                  allowClear
+                  placeholder="选择或输入品牌"
+                  options={brandOptions}
+                  onSearch={(value) => {
+                    if (value && !brandOptions.some(o => o.value === value)) {
+                      setBrandOptions([...brandOptions, { value, label: value }]);
+                    }
+                  }}
+                  filterOption={(input, option) =>
+                    option.label.toLowerCase().includes(input.toLowerCase())
+                  }
+                />
+              ) : (
+                <span>{selectedMaterial.properties?.find(p => p.key === 'brand')?.value || '-'}</span>
+              )}
+            </Form.Item>
+            <Form.Item label="材质" name="material_type">
+              {isEditing ? (
+                <Select
+                  showSearch
+                  allowClear
+                  placeholder="选择或输入材质"
+                  options={materialTypeOptions}
+                  onSearch={(value) => {
+                    if (value && !materialTypeOptions.some(o => o.value === value)) {
+                      setMaterialTypeOptions([...materialTypeOptions, { value, label: value }]);
+                    }
+                  }}
+                  filterOption={(input, option) =>
+                    option.label.toLowerCase().includes(input.toLowerCase())
+                  }
+                />
+              ) : (
+                <span>{selectedMaterial.properties?.find(p => p.key === 'material_type')?.value || '-'}</span>
+              )}
+            </Form.Item>
+            <Form.Item label="技术参数" name="technical_params">
+              {isEditing ? <Input.TextArea /> : <span>{selectedMaterial.properties?.find(p => p.key === 'technical_params')?.value || '-'}</span>}
+            </Form.Item>
+            {!isEditing && (
+              <>
+                <Descriptions bordered column={2}>
+                  <Descriptions.Item label="当前库存">{selectedMaterial.current_stock}</Descriptions.Item>
+                  <Descriptions.Item label="最小库存">{selectedMaterial.min_stock}</Descriptions.Item>
+                  <Descriptions.Item label="物料编码">{selectedMaterial.material_code}</Descriptions.Item>
+                  <Descriptions.Item label="入库状态">{selectedMaterial.inbound_status}</Descriptions.Item>
+                </Descriptions>
+              </>
+            )}
+          </Form>
         )}
       </Modal>
 

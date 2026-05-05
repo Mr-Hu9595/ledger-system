@@ -67,3 +67,8 @@ class OutboundResponse(OutboundBase):
 
     class Config:
         from_attributes = True
+
+from schemas.encoding import (
+    EncodingRuleCreate, EncodingRuleUpdate, EncodingRuleResponse,
+    CodeGenerateRequest, CodeGenerateResponse, CategoryListResponse, CategoryInfo
+)
