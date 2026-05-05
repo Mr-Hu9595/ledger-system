@@ -1,6 +1,7 @@
 // warehouse-manager/client/src/pages/OutboundList/index.jsx
 import { useState, useEffect } from 'react';
 import { Table, Card, Typography } from 'antd';
+import AIPanel from '../../components/AIPanel';
 import { outboundAPI } from '../../services/api';
 
 const { Title } = Typography;
@@ -40,6 +41,7 @@ const OutboundList = () => {
   return (
     <div>
       <Title level={3}>出库记录</Title>
+      <AIPanel mode="outbound" onSuccess={fetchOutbounds} />
       <Card>
         <Table
           columns={columns}
