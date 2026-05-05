@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List
 from uuid import UUID
 from datetime import date
+from decimal import Decimal
 
 from database import get_db
 from models import Inbound, Material
@@ -39,8 +41,24 @@ def create_inbound(inbound: InboundCreate, db: Session = Depends(get_db)):
     if not material:
         raise HTTPException(status_code=404, detail="物料不存在")
 
+    # 计算 inbound_sequence: 这是该物料第N次入库
+    max_seq = db.query(func.max(Inbound.inbound_sequence)).filter(
+        Inbound.ledger_id == inbound.ledger_id
+    ).scalar()
+    inbound_sequence = (max_seq or 0) + 1
+
+    # 计算 cumulative_in: 累计入库量
+    total_in = db.query(func.sum(Inbound.quantity)).filter(
+        Inbound.ledger_id == inbound.ledger_id
+    ).scalar() or 0
+    cumulative_in = float(total_in) + inbound.quantity
+
     # 创建入库记录
-    db_inbound = Inbound(**inbound.model_dump())
+    inbound_data = inbound.model_dump()
+    inbound_data['inbound_sequence'] = inbound_sequence
+    inbound_data['cumulative_in'] = cumulative_in
+
+    db_inbound = Inbound(**inbound_data)
     db.add(db_inbound)
 
     # 更新库存
