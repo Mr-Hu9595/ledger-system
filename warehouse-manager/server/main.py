@@ -18,11 +18,12 @@ app.add_middleware(
 Base.metadata.create_all(bind=engine)
 
 # 注册路由
-from api import materials, inbounds, outbounds, tools
+from api import materials, inbounds, outbounds, tools, ai
 app.include_router(materials.router, prefix="/api/materials", tags=["物料"])
 app.include_router(inbounds.router, prefix="/api/inbounds", tags=["入库"])
 app.include_router(outbounds.router, prefix="/api/outbounds", tags=["出库"])
 app.include_router(tools.router, prefix="/api", tags=["工具"])
+app.include_router(ai.router, prefix="/api/ai", tags=["AI识别"])
 
 @app.get("/api/health")
 def health_check():

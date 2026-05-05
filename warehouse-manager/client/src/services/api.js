@@ -47,4 +47,21 @@ export const toolsAPI = {
   syncReport: () => api.post('/sync/report')
 };
 
+// AI识别API
+export const aiAPI = {
+  recognize: async (mode, { text, file }) => {
+    const formData = new FormData();
+    formData.append('mode', mode);
+    if (text) {
+      formData.append('text', text);
+    }
+    if (file) {
+      formData.append('file', file);
+    }
+    return api.post('/ai/recognize', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  }
+};
+
 export default api;
