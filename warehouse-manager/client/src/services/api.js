@@ -23,14 +23,18 @@ export const materialAPI = {
 export const inboundAPI = {
   getList: (params) => api.get('/inbounds', { params }),
   create: (data) => api.post('/inbounds', data),
-  getById: (id) => api.get(`/inbounds/${id}`)
+  getById: (id) => api.get(`/inbounds/${id}`),
+  update: (id, data) => api.put(`/inbounds/${id}`, data),
+  delete: (id) => api.delete(`/inbounds/${id}`)
 };
 
 // 出库API
 export const outboundAPI = {
   getList: (params) => api.get('/outbounds', { params }),
   create: (data) => api.post('/outbounds', data),
-  getById: (id) => api.get(`/outbounds/${id}`)
+  getById: (id) => api.get(`/outbounds/${id}`),
+  update: (id, data) => api.put(`/outbounds/${id}`, data),
+  delete: (id) => api.delete(`/outbounds/${id}`)
 };
 
 // 工具API
@@ -58,9 +62,14 @@ export const aiAPI = {
     if (file) {
       formData.append('file', file);
     }
-    return api.post('/ai/recognize', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+    // Create a fresh axios instance without global headers that would override FormData
+    // Use 360s timeout to match server-side MiniMax API timeout
+    const instance = axios.create({
+      baseURL: API_BASE,
+      timeout: 360000
+      // No headers here - let axios set Content-Type automatically for FormData
     });
+    return instance.post('/ai/recognize', formData);
   }
 };
 
