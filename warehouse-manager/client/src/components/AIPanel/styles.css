@@ -76,3 +76,30 @@
   display: flex;
   gap: 8px;
 }
+
+.ai-panel-table-wrapper {
+  overflow-x: auto;
+  margin-top: 8px;
+}
+
+.ai-panel-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.ai-panel-table th,
+.ai-panel-table td {
+  border: 1px solid #e8e8e8;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.ai-panel-table th {
+  background: #fafafa;
+  font-weight: 500;
+}
+
+.ai-panel-table tr:hover {
+  background: #f5f5f5;
+}

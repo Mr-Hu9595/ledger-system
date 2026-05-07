@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Card, Input, Button, Upload, Space, message, Spin, Alert } from 'antd';
-import { RobotOutlined, CameraOutlined, FileOutlined, UploadOutlined } from '@ant-design/icons';
+import { Card, Input, Button, Space, message, Spin, Alert, Table, Checkbox } from 'antd';
+import { RobotOutlined, UploadOutlined } from '@ant-design/icons';
 import { aiAPI } from '../../services/api';
 import './styles.css';
 
@@ -80,8 +80,8 @@ const MODE_API = {
 const AIPanel = ({ mode = 'material', onSuccess, fillOnly = false, onFill }) => {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [editableResult, setEditableResult] = useState({});
+  const [results, setResults] = useState([]);  // 支持多条记录
+  const [selectedKeys, setSelectedKeys] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
   const fields = MODE_FIELDS[mode];
@@ -96,18 +96,27 @@ const AIPanel = ({ mode = 'material', onSuccess, fillOnly = false, onFill }) => 
     setLoading(true);
     try {
       const res = await aiAPI.recognize(mode, { text });
-      const data = res.data.data || {};
-      setResult(data);
-      setEditableResult(data);
+      const data = res.data.data || [];
+      const records = Array.isArray(data) ? data : [data];
 
-      if (fillOnly && onFill) {
-        onFill(data);
+      if (records.length === 0) {
+        message.warning('未识别到任何记录');
+        return;
+      }
+
+      setResults(records);
+      setSelectedKeys(records.map((_, idx) => idx));
+
+      if (fillOnly && onFill && records.length === 1) {
+        onFill(records[0]);
         message.success('已识别并填充表单');
-        setResult(null);
-        setEditableResult({});
+        setResults([]);
+        setSelectedKeys([]);
         setText('');
+      } else if (fillOnly && onFill && records.length > 1) {
+        message.success(`识别到${records.length}条记录，请选择要填充的数据`);
       } else {
-        message.success('识别完成，请确认信息');
+        message.success(`识别完成，找到${records.length}条记录，请确认`);
       }
     } catch (error) {
       message.error('识别失败: ' + (error.response?.data?.detail || error.message));
@@ -121,17 +130,26 @@ const AIPanel = ({ mode = 'material', onSuccess, fillOnly = false, onFill }) => 
     setLoading(true);
     try {
       const res = await aiAPI.recognize(mode, { file });
-      const data = res.data.data || {};
-      setResult(data);
-      setEditableResult(data);
+      const data = res.data.data || [];
+      const records = Array.isArray(data) ? data : [data];
 
-      if (fillOnly && onFill) {
-        onFill(data);
+      if (records.length === 0) {
+        message.warning('未识别到任何记录');
+        return;
+      }
+
+      setResults(records);
+      setSelectedKeys(records.map((_, idx) => idx));
+
+      if (fillOnly && onFill && records.length === 1) {
+        onFill(records[0]);
         message.success('文件识别并填充表单');
-        setResult(null);
-        setEditableResult({});
+        setResults([]);
+        setSelectedKeys([]);
+      } else if (fillOnly && onFill && records.length > 1) {
+        message.success(`识别到${records.length}条记录，请选择要填充的数据`);
       } else {
-        message.success('文件识别完成，请确认信息');
+        message.success(`文件识别完成，找到${records.length}条记录，请确认`);
       }
     } catch (error) {
       message.error('文件识别失败: ' + (error.response?.data?.detail || error.message));
@@ -142,12 +160,26 @@ const AIPanel = ({ mode = 'material', onSuccess, fillOnly = false, onFill }) => 
   };
 
   // 编辑结果字段
-  const handleFieldChange = (key, value) => {
-    setEditableResult(prev => ({ ...prev, [key]: value }));
+  const handleFieldChange = (idx, key, value) => {
+    setResults(prev => prev.map((r, i) => i === idx ? { ...r, [key]: value } : r));
+  };
+
+  // 全选/取消全选
+  const handleSelectAll = (checked) => {
+    if (checked) {
+      setSelectedKeys(results.map((_, idx) => idx));
+    } else {
+      setSelectedKeys([]);
+    }
   };
 
   // 提交
   const handleSubmit = async () => {
+    if (selectedKeys.length === 0) {
+      message.warning('请选择要提交的记录');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const apiFn = await MODE_API[mode];
@@ -158,10 +190,21 @@ const AIPanel = ({ mode = 'material', onSuccess, fillOnly = false, onFill }) => 
         const res = await materialAPI.getList({ limit: 1000 });
         materials = res.data;
       }
-      await apiFn(editableResult, materials);
-      message.success('提交成功');
-      setResult(null);
-      setEditableResult({});
+
+      const selectedRecords = selectedKeys.map(k => results[k]);
+      let successCount = 0;
+      for (const record of selectedRecords) {
+        try {
+          await apiFn(record, materials);
+          successCount++;
+        } catch (err) {
+          console.error('单条提交失败:', err);
+        }
+      }
+
+      message.success(`成功提交${successCount}/${selectedRecords.length}条记录`);
+      setResults([]);
+      setSelectedKeys([]);
       setText('');
       onSuccess?.();
     } catch (error) {
@@ -173,8 +216,8 @@ const AIPanel = ({ mode = 'material', onSuccess, fillOnly = false, onFill }) => 
 
   // 清空
   const handleClear = () => {
-    setResult(null);
-    setEditableResult({});
+    setResults([]);
+    setSelectedKeys([]);
     setText('');
   };
 
@@ -205,15 +248,26 @@ const AIPanel = ({ mode = 'material', onSuccess, fillOnly = false, onFill }) => 
             >
               智能识别
             </Button>
-            <Upload
-              beforeUpload={handleFileUpload}
-              showUploadList={false}
-              accept=".jpg,.jpeg,.png,.webp,.docx,.xlsx,.xls,.pdf"
+            <Button
+              icon={<UploadOutlined />}
+              loading={loading}
+              onClick={() => document.getElementById('ai-file-input').click()}
             >
-              <Button icon={<UploadOutlined />} loading={loading}>
-                上传文件
-              </Button>
-            </Upload>
+              上传文件
+            </Button>
+            <input
+              id="ai-file-input"
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp,.docx,.xlsx,.xls,.pdf"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  handleFileUpload(file);
+                  e.target.value = '';
+                }
+              }}
+            />
           </div>
         </div>
 
@@ -229,31 +283,68 @@ const AIPanel = ({ mode = 'material', onSuccess, fillOnly = false, onFill }) => 
           </div>
         )}
 
-        {result && !loading && (
+        {results.length > 0 && !loading && (
           <div className="ai-panel-result">
             <Alert
-              message={fillOnly ? "识别结果已填充到左侧表单" : "识别结果 - 请确认以下信息"}
+              message={`识别到${results.length}条记录，请确认后提交`}
               type="info"
               showIcon
-              closable={!fillOnly}
+              closable
               onClose={handleClear}
             />
             {!fillOnly && (
               <>
-                <div className="ai-panel-fields">
-                  {fields.map(field => (
-                    <div key={field.key} className="ai-panel-field">
-                      <label>
-                        {field.label}
-                        {field.required && <span className="required">*</span>}
-                      </label>
-                      <Input
-                        value={editableResult[field.key] || ''}
-                        onChange={e => handleFieldChange(field.key, e.target.value)}
-                        placeholder={`请输入${field.label}`}
-                      />
-                    </div>
-                  ))}
+                <div style={{ marginTop: 12, marginBottom: 8 }}>
+                  <Checkbox
+                    checked={selectedKeys.length === results.length}
+                    indeterminate={selectedKeys.length > 0 && selectedKeys.length < results.length}
+                    onChange={e => handleSelectAll(e.target.checked)}
+                  >
+                    全选
+                  </Checkbox>
+                  <span style={{ marginLeft: 8, color: '#888' }}>
+                    已选{selectedKeys.length}条
+                  </span>
+                </div>
+                <div className="ai-panel-table-wrapper">
+                  <table className="ai-panel-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: 40 }}></th>
+                        {fields.map(f => (
+                          <th key={f.key}>{f.label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {results.map((record, idx) => (
+                        <tr key={idx} style={{ background: selectedKeys.includes(idx) ? '#f6ffed' : '#fff' }}>
+                          <td>
+                            <Checkbox
+                              checked={selectedKeys.includes(idx)}
+                              onChange={e => {
+                                if (e.target.checked) {
+                                  setSelectedKeys([...selectedKeys, idx]);
+                                } else {
+                                  setSelectedKeys(selectedKeys.filter(k => k !== idx));
+                                }
+                              }}
+                            />
+                          </td>
+                          {fields.map(f => (
+                            <td key={f.key}>
+                              <Input
+                                size="small"
+                                value={record[f.key] || ''}
+                                onChange={e => handleFieldChange(idx, f.key, e.target.value)}
+                                placeholder={f.label}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
                 <div className="ai-panel-submit">
                   <Button
@@ -261,7 +352,7 @@ const AIPanel = ({ mode = 'material', onSuccess, fillOnly = false, onFill }) => 
                     onClick={handleSubmit}
                     loading={submitting}
                   >
-                    确认提交
+                    提交({selectedKeys.length})
                   </Button>
                   <Button onClick={handleClear}>
                     清空

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Integer, Date, Text
+from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Integer, Date, Text, Time
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
@@ -44,7 +44,7 @@ class Inbound(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     ledger_id = Column(UUID(as_uuid=True), ForeignKey("ledger.id"), nullable=False)
     inbound_date = Column(Date, nullable=False)
-    inbound_time = Column(DateTime, default=datetime.utcnow)
+    inbound_time = Column(Time, default=lambda: datetime.utcnow().time())
     quantity = Column(Float, nullable=False)
     inbound_sequence = Column(Integer, nullable=False, default=0)  # 第N次入库
     cumulative_in = Column(Float, nullable=False, default=0)  # 累计入库量
@@ -64,7 +64,7 @@ class Outbound(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     ledger_id = Column(UUID(as_uuid=True), ForeignKey("ledger.id"), nullable=False)
     outbound_date = Column(Date, nullable=False)
-    outbound_time = Column(DateTime, default=datetime.utcnow)
+    outbound_time = Column(Time, default=lambda: datetime.utcnow().time())
     quantity = Column(Float, nullable=False)
     outbound_sequence = Column(Integer, nullable=False, default=0)  # 第N次出库
     cumulative_out = Column(Float, nullable=False, default=0)  # 累计出库量

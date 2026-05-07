@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from typing import List
 from uuid import UUID
@@ -8,7 +8,7 @@ from decimal import Decimal
 
 from database import get_db
 from models import Inbound, Material
-from schemas import InboundCreate, InboundResponse
+from schemas import InboundCreate, InboundResponse, InboundUpdate
 
 router = APIRouter()
 
@@ -21,7 +21,7 @@ def get_inbounds(
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
-    query = db.query(Inbound)
+    query = db.query(Inbound).options(joinedload(Inbound.ledger))
 
     if ledger_id:
         query = query.filter(Inbound.ledger_id == ledger_id)
@@ -73,7 +73,61 @@ def create_inbound(inbound: InboundCreate, db: Session = Depends(get_db)):
 
 @router.get("/{inbound_id}", response_model=InboundResponse)
 def get_inbound(inbound_id: UUID, db: Session = Depends(get_db)):
-    inbound = db.query(Inbound).filter(Inbound.id == inbound_id).first()
+    inbound = db.query(Inbound).options(joinedload(Inbound.ledger)).filter(Inbound.id == inbound_id).first()
     if not inbound:
         raise HTTPException(status_code=404, detail="入库记录不存在")
     return inbound
+
+@router.put("/{inbound_id}", response_model=InboundResponse)
+def update_inbound(inbound_id: UUID, inbound_update: InboundUpdate, db: Session = Depends(get_db)):
+    inbound = db.query(Inbound).options(joinedload(Inbound.ledger)).filter(Inbound.id == inbound_id).first()
+    if not inbound:
+        raise HTTPException(status_code=404, detail="入库记录不存在")
+
+    # 获取旧值用于计算库存变化
+    old_quantity = inbound.quantity
+    old_ledger_id = inbound.ledger_id
+
+    # 更新字段
+    update_data = inbound_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        if value is not None:
+            setattr(inbound, key, value)
+
+    new_quantity = inbound.quantity
+    new_ledger_id = inbound.ledger_id
+
+    # 如果物料或数量变化，调整库存
+    if old_ledger_id != new_ledger_id:
+        # 旧物料减库存
+        old_material = db.query(Material).filter(Material.id == old_ledger_id).first()
+        if old_material:
+            old_material.current_stock -= old_quantity
+        # 新物料加库存
+        new_material = db.query(Material).filter(Material.id == new_ledger_id).first()
+        if new_material:
+            new_material.current_stock += new_quantity
+    elif old_quantity != new_quantity:
+        # 同一物料数量变化
+        material = db.query(Material).filter(Material.id == new_ledger_id).first()
+        if material:
+            material.current_stock += (new_quantity - old_quantity)
+
+    db.commit()
+    db.refresh(inbound)
+    return inbound
+
+@router.delete("/{inbound_id}")
+def delete_inbound(inbound_id: UUID, db: Session = Depends(get_db)):
+    inbound = db.query(Inbound).options(joinedload(Inbound.ledger)).filter(Inbound.id == inbound_id).first()
+    if not inbound:
+        raise HTTPException(status_code=404, detail="入库记录不存在")
+
+    # 恢复库存
+    material = db.query(Material).filter(Material.id == inbound.ledger_id).first()
+    if material:
+        material.current_stock -= inbound.quantity
+
+    db.delete(inbound)
+    db.commit()
+    return {"success": True, "message": "删除成功"}
